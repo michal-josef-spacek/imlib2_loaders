@@ -8,9 +8,6 @@ AM_CPPFLAGS          = -I. \
 
 pkgdir               = $(libdir)/imlib2/loaders
 
-if BUILD_EDB_LOADER
-EDB_L                = db.la
-endif
 if BUILD_EET_LOADER
 EET_L                = eet.la
 endif
@@ -19,16 +16,10 @@ XCF_L                = xcf.la
 endif
 
 pkg_LTLIBRARIES      = \
-$(EDB_L) \
 $(EET_L) \
 $(XCF_L) \
 ico.la \
 ani.la
-
-db_la_SOURCES       = loader_db.c common.h image.h
-db_la_CPPFLAGS      = @EDB_CFLAGS@ $(AM_CPPFLAGS)
-db_la_LDFLAGS       = -module -avoid-version
-db_la_LIBADD        = @EDB_LIBS@
 
 eet_la_SOURCES      = loader_eet.c common.h image.h
 eet_la_CPPFLAGS     = @EET_CFLAGS@ $(AM_CPPFLAGS)

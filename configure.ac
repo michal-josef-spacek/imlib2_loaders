@@ -84,17 +84,6 @@ packagesrcdir=`cd $srcdir && pwd`
 AC_DEFINE_UNQUOTED(PACKAGE_SOURCE_DIR, "${packagesrcdir}", [Source code directory])
 
 
-edb=auto
-AC_ARG_ENABLE(edb,
-[  --disable-edb           disable building the edb loader],
-[
- if test x$enableval = xno; then
-   edb=no
- else
-   edb=yes
- fi
-])
-
 eet=auto
 AC_ARG_ENABLE(eet,
 [  --disable-eet           disable building the eet loader],
@@ -125,19 +114,6 @@ AC_ARG_WITH(imlib2-config, [  --with-imlib2-config=IMLIB2_CONFIG    use imlib2-c
 my_includes=`$IMLIB2_CONFIG --cflags`
 
 
-found_edb=no
-if test "x$edb" != "xno" ; then
-        PKG_CHECK_MODULES(EDB, edb, found_edb=yes, found_edb=no)
-fi
-
-if test "x$edb$found_edb" = "xyesno" ; then
-	AC_MSG_ERROR(Edb support was requested but not found)
-elif test "x$found_edb" = "xno" ; then
-	edb=no
-	EDB_CFLAGS=""
-	EDB_LIBS=""
-fi
-
 found_eet=no
 if test "x$eet" != "xno" ; then
         PKG_CHECK_MODULES(EET, eet, found_eet=yes, found_eet=no)
@@ -151,12 +127,9 @@ elif test "x$found_eet" = "xno" ; then
 fi
 
 AC_SUBST(my_includes)
-AC_SUBST(EDB_CFLAGS)
-AC_SUBST(EDB_LIBS)
 AC_SUBST(EET_CFLAGS)
 AC_SUBST(EET_LIBS)
 
-AM_CONDITIONAL(BUILD_EDB_LOADER, test x$edb != xno)
 AM_CONDITIONAL(BUILD_EET_LOADER, test x$eet != xno)
 AM_CONDITIONAL(BUILD_XCF_LOADER, test x$xcf != xno)
 
@@ -172,12 +145,6 @@ imlib2_loaders.spec
 
 echo -e "\nBuild summary:"
 echo    "------------------------"
-echo -n " EDB: "
-if test x$edb = xno ; then
-  echo    "Disabled "
-else
-  echo    "Enabled "
-fi
 echo -n " EET: "
 if test x$eet = xno ; then
   echo    "Disabled "
