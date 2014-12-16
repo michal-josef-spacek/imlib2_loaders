@@ -1,12 +1,10 @@
 # get rid of that stupid cache mechanism
 rm -f config.cache
 
-AC_INIT(imlib2_loaders, 1.4.6, enlightenment-devel@lists.sourceforge.net)
-AC_PREREQ(2.52)
+AC_INIT([imlib2_loaders],[1.4.6],[enlightenment-devel@lists.sourceforge.net])
 AC_CONFIG_SRCDIR(configure.ac)
 AC_CANONICAL_BUILD
 AC_CANONICAL_HOST
-AC_ISC_POSIX
 
 AM_INIT_AUTOMAKE(1.6 dist-bzip2)
 AC_CONFIG_HEADERS(config.h)
@@ -15,8 +13,7 @@ AC_C_BIGENDIAN
 AC_PROG_CC
 AC_HEADER_STDC
 AC_C_CONST
-AM_ENABLE_SHARED
-AM_PROG_LIBTOOL
+LT_INIT
 
 if test "x${bindir}" = 'x${exec_prefix}/bin'; then
   if test "x${exec_prefix}" = "xNONE"; then
@@ -133,15 +130,17 @@ AC_SUBST(EET_LIBS)
 AM_CONDITIONAL(BUILD_EET_LOADER, test x$eet != xno)
 AM_CONDITIONAL(BUILD_XCF_LOADER, test x$xcf != xno)
 
-AC_OUTPUT([
+AC_CONFIG_FILES([
 Makefile
 src/Makefile
 src/modules/Makefile
 src/modules/loaders/Makefile
 README
 imlib2_loaders.spec
-],[
 ])
+AC_CONFIG_COMMANDS([default],[
+],[])
+AC_OUTPUT
 
 echo -e "\nBuild summary:"
 echo    "------------------------"
