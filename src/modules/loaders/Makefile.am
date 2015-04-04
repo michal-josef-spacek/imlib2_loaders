@@ -1,10 +1,5 @@
 MAINTAINERCLEANFILES = Makefile.in
 
-AM_CPPFLAGS          = -I. \
-                       -I$(top_srcdir) \
-                       -I$(top_srcdir)/src/modules/loaders \
-                       @my_includes@
-
 pkgdir               = $(libdir)/imlib2/loaders
 
 if BUILD_EET_LOADER
@@ -21,7 +16,7 @@ ico.la \
 ani.la
 
 eet_la_SOURCES      = loader_eet.c common.h image.h
-eet_la_CPPFLAGS     = @EET_CFLAGS@ $(AM_CPPFLAGS)
+eet_la_CPPFLAGS     = @EET_CFLAGS@
 eet_la_LDFLAGS      = -module -avoid-version
 eet_la_LIBADD       = @EET_LIBS@
 eet_la_LIBTOOLFLAGS = --tag=disable-static

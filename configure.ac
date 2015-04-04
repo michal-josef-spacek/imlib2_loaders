@@ -14,6 +14,7 @@ AC_PROG_CC
 AC_HEADER_STDC
 AC_C_CONST
 LT_INIT
+PKG_PROG_PKG_CONFIG
 
 if test "x${bindir}" = 'x${exec_prefix}/bin'; then
   if test "x${exec_prefix}" = "xNONE"; then
@@ -101,15 +102,7 @@ AC_ARG_ENABLE(xcf,
 ])
 
 
-AC_ARG_WITH(imlib2-config, [  --with-imlib2-config=IMLIB2_CONFIG    use imlib2-config specified ],
-[ IMLIB2_CONFIG=$withval;
-  echo "using "$IMLIB2_CONFIG" for imlib2-config"; ],
-[ if test -z "$IMLIB2_CONFIG"; then
-    AC_PATH_PROG(IMLIB2_CONFIG, "imlib2-config", "", $PATH)
-  fi
-])
-my_includes=`$IMLIB2_CONFIG --cflags`
-
+dnl PKG_CHECK_MODULES(IMLIB2, imlib2)
 
 found_eet=no
 if test "x$eet" != "xno" ; then
@@ -119,13 +112,7 @@ if test "x$eet$found_eet" = "xyesno" ; then
 	AC_MSG_ERROR(Eet support was requested but not found)
 elif test "x$found_eet" = "xno" ; then
 	eet=no
-	EET_CFLAGS=""
-	EET_LIBS=""
 fi
-
-AC_SUBST(my_includes)
-AC_SUBST(EET_CFLAGS)
-AC_SUBST(EET_LIBS)
 
 AM_CONDITIONAL(BUILD_EET_LOADER, test x$eet != xno)
 AM_CONDITIONAL(BUILD_XCF_LOADER, test x$xcf != xno)
