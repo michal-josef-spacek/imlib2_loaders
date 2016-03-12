@@ -1,12 +1,22 @@
 
 ***
+*** Version 1.4.8 ***
+***
+
+Kim Woelders (2):
+      Autofoo cleanups.
+      1.4.8 (no significant changes since 1.4.7).
+
+
+***
 *** Version 1.4.7 ***
 ***
 
-Kim Woelders (3):
+Kim Woelders (4):
       Update autofoo (run autoupdate).
       Don't install .a files.
       Generate a ChangeLog using git shortlog between existing tags.
+      1.4.7.
 
 
 ***
