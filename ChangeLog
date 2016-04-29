@@ -1,5 +1,13 @@
 
 ***
+*** Version 1.4.9 ***
+***
+
+Kim Woelders (1):
+      1.4.9 (no changes since 1.4.8).
+
+
+***
 *** Version 1.4.8 ***
 ***
 
@@ -12,7 +20,8 @@ Kim Woelders (2):
 *** Version 1.4.7 ***
 ***
 
-Kim Woelders (4):
+Kim Woelders (5):
+      1.4.6.
       Update autofoo (run autoupdate).
       Don't install .a files.
       Generate a ChangeLog using git shortlog between existing tags.
