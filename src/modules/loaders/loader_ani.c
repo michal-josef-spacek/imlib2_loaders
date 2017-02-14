@@ -66,7 +66,7 @@ typedef struct _MsChunk
   struct _MsChunk     *next;
   DATA32       chunk_id;
   DATA32       chunk_size;  /* Size of this chunk, starting from */
-  char         data;        /* the following byte. Thus chunk_size = full size - 8 */
+  DATA8        data;        /* the following byte. Thus chunk_size = full size - 8 */
 } MsChunk;
 
 typedef struct _MsAni

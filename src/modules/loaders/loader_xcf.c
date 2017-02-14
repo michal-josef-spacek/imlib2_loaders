@@ -256,7 +256,7 @@ struct _GimpImage
   DATA32              floating_sel_offset;
 
   DATA8*              cmap;            /*  colormap--for indexed        */
-  int                 num_cols;        /*  number of colors in map      */
+  DATA32              num_cols;        /*  number of colors in map      */
 
  /* If a layer number was passed to the loader, it goes here: */
   int                 single_layer_index;
@@ -464,7 +464,7 @@ xcf_load_image_props (void)
 	  {
 	    if (image->file_version == 0) 
 	      {
-		int i;
+		unsigned int i;
 		fprintf (stderr,
 			 "XCF warning: version 0 of XCF file format\n"
 			 "did not save indexed colormaps correctly.\n"
@@ -491,9 +491,9 @@ xcf_load_image_props (void)
 
 	case PROP_COMPRESSION:
 	  {
-	    char compression;
+	    DATA8 compression;
 
-	    image->cp += xcf_read_int8 (image->fp, (char*) &compression, 1);
+	    image->cp += xcf_read_int8 (image->fp, &compression, 1);
 
 	    if ((compression != COMPRESS_NONE) &&
 		(compression != COMPRESS_RLE) &&
@@ -1718,10 +1718,6 @@ load(ImlibImage *im, ImlibProgressFunction progress, char progress_granularity, 
    xcf_cleanup();
 
    return 1;
-
-   /* shut up warnings: */
-   progress_granularity = 0;
-   immediate_load = 0;
 }
 
 /* fills the ImlibLoader struct with a strign array of format file */

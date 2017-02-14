@@ -589,9 +589,8 @@ load(ImlibImage *im, ImlibProgressFunction progress, char progress_granularity, 
   
   if (im->data)
     free(im->data);
-  return 0;
 
-  progress_granularity = 0;
+  return 0;
 }
 
 /* fills the ImlibLoader struct with a strign array of format file */
