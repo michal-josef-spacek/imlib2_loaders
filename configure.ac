@@ -3,14 +3,16 @@ rm -f config.cache
 
 AC_INIT([imlib2_loaders],[1.4.9],[enlightenment-devel@lists.sourceforge.net])
 AC_CONFIG_SRCDIR(configure.ac)
+AC_CONFIG_MACRO_DIR([m4])
 AC_CANONICAL_BUILD
 AC_CANONICAL_HOST
 
 AM_INIT_AUTOMAKE(1.6 dist-bzip2)
-AC_CONFIG_HEADERS(config.h)
+m4_ifdef([AM_SILENT_RULES], [AM_SILENT_RULES([yes])])
 
 AC_C_BIGENDIAN
 AC_PROG_CC
+
 AC_HEADER_STDC
 AC_C_CONST
 LT_INIT
@@ -117,6 +119,7 @@ fi
 AM_CONDITIONAL(BUILD_EET_LOADER, test x$eet != xno)
 AM_CONDITIONAL(BUILD_XCF_LOADER, test x$xcf != xno)
 
+AC_CONFIG_HEADERS(config.h)
 AC_CONFIG_FILES([
 Makefile
 src/Makefile
