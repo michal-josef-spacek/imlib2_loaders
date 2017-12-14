@@ -302,7 +302,6 @@ load(ImlibImage *im, ImlibProgressFunction progress, char progress_granularity, 
 	{
 	  if (chunk->chunk_id == 0x6E6F6369)
 	    {
-	      ImlibLoadError err;
 	      ImlibImage *temp_im;
 	      char *filename;
 
@@ -310,7 +309,7 @@ load(ImlibImage *im, ImlibProgressFunction progress, char progress_granularity, 
 		return 0;
 
 	      temp_im = __imlib_LoadImage(filename, progress, progress_granularity,
-					  immediate_load, 0, &err);
+					  immediate_load, 0, NULL);
 
 	      im->w = temp_im->w;
 	      im->h = temp_im->h;

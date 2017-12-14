@@ -51,8 +51,6 @@
 
 #define EPS 0.00001
 #define PI  3.141592654
-#define MAX(a, b) ((a) > (b) ? (a) : (b))
-#define MIN(a, b) ((a) < (b) ? (a) : (b))
 #define INT_MULT(a,b,t)  ((t) = (a) * (b) + 0x80, ((((t) >> 8) + (t)) >> 8))
 #define LINEAR(x,y,w) ((w*y + x)*4)
 
