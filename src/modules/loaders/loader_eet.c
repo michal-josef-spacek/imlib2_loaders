@@ -390,19 +390,15 @@ save (ImlibImage *im, ImlibProgressFunction progress,
    progress_granularity = 0;
 }
 
-void 
-formats (ImlibLoader *l)
-{  
-   char *list_formats[] = 
-     { "eet" };
+void
+formats(ImlibLoader * l)
+{
+   static const char  *const list_formats[] = { "eet" };
+   int                 i;
 
-     {
-	int i;
-	
-	l->num_formats = (sizeof(list_formats) / sizeof (char *));
-	l->formats = malloc(sizeof(char *) * l->num_formats);
-	for (i = 0; i < l->num_formats; i++)
-	   l->formats[i] = strdup(list_formats[i]);
-     }
+   l->num_formats = sizeof(list_formats) / sizeof(char *);
+   l->formats = malloc(sizeof(char *) * l->num_formats);
+
+   for (i = 0; i < l->num_formats; i++)
+      l->formats[i] = strdup(list_formats[i]);
 }
-

@@ -341,29 +341,15 @@ load(ImlibImage *im, ImlibProgressFunction progress, char progress_granularity, 
   progress_granularity = 0;
 }
 
-/* fills the ImlibLoader struct with a strign array of format file */
-/* extensions this loader can load. eg: */
-/* loader->formats = { "jpeg", "jpg"}; */
-/* giving permutations is a good idea. case sensitivity is irrelevant */
-/* your laoder CAN load more than one format if it likes - like: */
-/* loader->formats = { "gif", "png", "jpeg", "jpg"} */
-/* if it can load those formats. */
-void 
-formats (ImlibLoader *l)
-{  
-   /* this is the only bit you have to change... */
-   char *list_formats[] = 
-     { "ani" };
+void
+formats(ImlibLoader * l)
+{
+   static const char  *const list_formats[] = { "ani" };
+   int                 i;
 
-   /* don't bother changing any of this - it just reads this in and sets */
-   /* the struct values and makes copies */
-     {
-	int i;
-	
-	l->num_formats = (sizeof(list_formats) / sizeof (char *));
-	l->formats = malloc(sizeof(char *) * l->num_formats);
-	for (i = 0; i < l->num_formats; i++)
-	   l->formats[i] = strdup(list_formats[i]);
-     }
+   l->num_formats = sizeof(list_formats) / sizeof(char *);
+   l->formats = malloc(sizeof(char *) * l->num_formats);
+
+   for (i = 0; i < l->num_formats; i++)
+      l->formats[i] = strdup(list_formats[i]);
 }
-
