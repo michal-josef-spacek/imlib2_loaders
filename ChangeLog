@@ -1,11 +1,22 @@
 
 ***
+*** Version 1.5.0 ***
+***
+
+Kim Woelders (4):
+      Copy updated headers from imlib2
+      Fix some warnings
+      Clean up formats()
+      1.5.0 (no significant changes since 1.4.10).
+
+
+***
 *** Version 1.4.10 ***
 ***
 
 Kim Woelders (2):
       Autofoo tweaks.
-      1.4.10 (no changes since 1.4.9).
+      1.4.10 (no significant changes since 1.4.9).
 
 
 ***
