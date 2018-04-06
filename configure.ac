@@ -66,6 +66,8 @@ AM_CONDITIONAL(BUILD_EET_LOADER, test x$eet != xno)
 AM_CONDITIONAL(BUILD_ICO_LOADER, test x$ico != xno)
 AM_CONDITIONAL(BUILD_XCF_LOADER, test x$xcf != xno)
 
+EC_C_WARNINGS()
+
 AC_CONFIG_HEADERS(config.h)
 AC_CONFIG_FILES([
 Makefile

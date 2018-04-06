@@ -1,5 +1,7 @@
 MAINTAINERCLEANFILES = Makefile.in
 
+AM_CFLAGS            = $(CFLAGS_WARNINGS)
+
 pkgdir               = $(libdir)/imlib2/loaders
 
 if BUILD_ANI_LOADER
