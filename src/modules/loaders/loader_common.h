@@ -5,10 +5,10 @@
 #include "common.h"
 #include "image.h"
 
-char            load(ImlibImage * im, ImlibProgressFunction progress,
+__EXPORT__ char load(ImlibImage * im, ImlibProgressFunction progress,
                      char progress_granularity, char immediate_load);
-char            save(ImlibImage * im, ImlibProgressFunction progress,
+__EXPORT__ char save(ImlibImage * im, ImlibProgressFunction progress,
                      char progress_granularity);
-void            formats(ImlibLoader * l);
+__EXPORT__ void formats(ImlibLoader * l);
 
 #endif /* __LOADER_COMMON_H */

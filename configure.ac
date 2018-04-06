@@ -67,6 +67,7 @@ AM_CONDITIONAL(BUILD_ICO_LOADER, test x$ico != xno)
 AM_CONDITIONAL(BUILD_XCF_LOADER, test x$xcf != xno)
 
 EC_C_WARNINGS()
+EC_C_VISIBILITY(yes)
 
 AC_CONFIG_HEADERS(config.h)
 AC_CONFIG_FILES([
@@ -96,6 +97,8 @@ echo "  ANI.....................: $ani"
 echo "  EET.....................: $eet"
 echo "  ICO.....................: $ico"
 echo "  XCF.....................: $xcf"
+echo
+echo "Use visibility hiding.....: $enable_visibility_hiding"
 echo
 echo "Installation path.........: $prefix"
 echo
