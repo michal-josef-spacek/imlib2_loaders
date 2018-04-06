@@ -2,18 +2,24 @@ MAINTAINERCLEANFILES = Makefile.in
 
 pkgdir               = $(libdir)/imlib2/loaders
 
+if BUILD_ANI_LOADER
+ANI_L                = ani.la
+endif
 if BUILD_EET_LOADER
 EET_L                = eet.la
+endif
+if BUILD_ICO_LOADER
+ICO_L                = ico.la
 endif
 if BUILD_XCF_LOADER
 XCF_L                = xcf.la
 endif
 
 pkg_LTLIBRARIES      = \
+$(ANI_L) \
 $(EET_L) \
-$(XCF_L) \
-ico.la \
-ani.la
+$(ICO_L) \
+$(XCF_L)
 
 eet_la_SOURCES      = loader_eet.c common.h image.h
 eet_la_CPPFLAGS     = @EET_CFLAGS@
