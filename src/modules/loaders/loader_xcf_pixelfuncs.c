@@ -30,6 +30,7 @@
 #include "common.h"
 #include "image.h"
 #include "color_values.h"
+#include "loader_xcf.h"
 
 #ifdef XCF_DBG
 #define D(s) \
@@ -54,7 +55,7 @@
 #define INT_MULT(a,b,t)  ((t) = (a) * (b) + 0x80, ((((t) >> 8) + (t)) >> 8))
 #define LINEAR(x,y,w) ((w*y + x)*4)
 
-void
+static void
 rgb_to_hls (DATA8 *red, DATA8 *green, DATA8 *blue)
 {
   int    r, g, b;
@@ -114,7 +115,7 @@ rgb_to_hls (DATA8 *red, DATA8 *green, DATA8 *blue)
 }
 
 
-DATA8
+static DATA8
 gimp_hls_value (double n1, double n2, double hue)
 {
   double value;
@@ -136,7 +137,7 @@ gimp_hls_value (double n1, double n2, double hue)
 }
 
 
-void
+static void
 hls_to_rgb (DATA8 *hue, DATA8 *lightness, DATA8 *saturation)
 {
   double h, l, s;
@@ -170,7 +171,7 @@ hls_to_rgb (DATA8 *hue, DATA8 *lightness, DATA8 *saturation)
 }
 
 
-void
+static void
 rgb_to_hsv (DATA8 *red, DATA8 *green, DATA8 *blue)
 {
   int    r, g, b;
@@ -226,7 +227,7 @@ rgb_to_hsv (DATA8 *red, DATA8 *green, DATA8 *blue)
   *blue  = v;
 }
 
-void
+static void
 hsv_to_rgb (DATA8 *hue, DATA8 *saturation, DATA8 *value)
 {
   double h, s, v;
@@ -291,10 +292,11 @@ hsv_to_rgb (DATA8 *hue, DATA8 *saturation, DATA8 *value)
 }
 
 /* translate negative destinations */
-void _clip(int * src_tl_x, int * src_tl_y,
-	  int * src_br_x, int * src_br_y,
-	  int * dest_x, int * dest_y,
-	  int dest_w, int dest_h)
+static void
+_clip(int * src_tl_x, int * src_tl_y,
+      int * src_br_x, int * src_br_y,
+      int * dest_x, int * dest_y,
+      int dest_w, int dest_h)
 {
   if (*dest_x + *src_br_x >= dest_w) 
     { *src_br_x -= (*dest_x + *src_br_x) - dest_w; }  
@@ -613,7 +615,7 @@ combine_pixels_overlay (DATA8* src, int src_w, int src_h, DATA8* dest, int dest_
 }
 
 
-void
+static void
 combine_pixels_hsv (DATA8* src, int src_w, int src_h, DATA8* dest, int dest_w, int dest_h, int dest_x, int dest_y, int mode)
 {
   int x, y, s_idx, d_idx;

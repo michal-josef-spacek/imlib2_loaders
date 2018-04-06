@@ -2,18 +2,12 @@
 #  include <config.h>
 #endif
 
-#include "common.h"
 #include <string.h>
 #include <X11/Xlib.h>
 #include <X11/extensions/XShm.h>
 #include <X11/Xutil.h>
-#include "image.h"
 
-char load (ImlibImage *im, ImlibProgressFunction progress,
-	   char progress_granularity, char immediate_load);
-char save (ImlibImage *im, ImlibProgressFunction progress,
-	   char progress_granularity);
-void formats (ImlibLoader *l);
+#include "loader_common.h"
 
 #define SWAP32(x) (x) = \
 ((((x) & 0x000000ff ) << 24) |\

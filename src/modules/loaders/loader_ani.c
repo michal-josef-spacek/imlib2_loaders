@@ -27,14 +27,13 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #  include <config.h>
 #endif
 
-#include "common.h"
 #include <stdio.h>
 #include <string.h>
 #include <X11/Xlib.h>
 #include <X11/extensions/XShm.h>
 #include <X11/Xutil.h>
-#include "image.h"
-#include "color_values.h"
+
+#include "loader_common.h"
 
 /* #define ANI_DBG */
 
@@ -83,10 +82,6 @@ typedef struct _MsAni
 } MsAni;
 
 static void        ani_cleanup (MsAni *ani);
-
-char load(ImlibImage *im, ImlibProgressFunction progress,char progress_granularity, char immediate_load);
-char save(ImlibImage *im, ImlibProgressFunction progress, char progress_granularity);
-void formats(ImlibLoader *l);
 
 
 static int
