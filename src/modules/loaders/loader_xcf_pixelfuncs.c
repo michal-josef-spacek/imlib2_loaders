@@ -24,7 +24,6 @@
 
 #include <stdio.h>
 #include <math.h>
-#include <X11/Xlib.h>
 #include <netinet/in.h>
 
 #include "common.h"

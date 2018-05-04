@@ -54,7 +54,6 @@
 #include <string.h>
 #include <sys/types.h>
 #include <netinet/in.h>
-#include <X11/Xlib.h>
 
 #include "color_values.h"
 #include "loader_common.h"
