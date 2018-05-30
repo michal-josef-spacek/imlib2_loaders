@@ -10,9 +10,6 @@ endif
 if BUILD_EET_LOADER
 EET_L                = eet.la
 endif
-if BUILD_ICO_LOADER
-ICO_L                = ico.la
-endif
 if BUILD_XCF_LOADER
 XCF_L                = xcf.la
 endif
@@ -20,7 +17,6 @@ endif
 pkg_LTLIBRARIES      = \
 $(ANI_L) \
 $(EET_L) \
-$(ICO_L) \
 $(XCF_L)
 
 EXTRA_DIST = color_values.h common.h image.h loader_common.h
@@ -35,11 +31,6 @@ xcf_la_SOURCES      = loader_xcf.c loader_xcf_pixelfuncs.c loader_xcf.h
 xcf_la_LDFLAGS      = -module -avoid-version
 xcf_la_LIBADD       =
 xcf_la_LIBTOOLFLAGS = --tag=disable-static
-
-ico_la_SOURCES      = loader_ico.c
-ico_la_LDFLAGS      = -module -avoid-version
-ico_la_LIBADD       =
-ico_la_LIBTOOLFLAGS = --tag=disable-static
 
 ani_la_SOURCES      = loader_ani.c
 ani_la_LDFLAGS      = -module -avoid-version

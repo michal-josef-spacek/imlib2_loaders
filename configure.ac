@@ -24,7 +24,6 @@ LT_INIT
 PKG_PROG_PKG_CONFIG
 
 ani=yes
-ico=yes
 
 eet=auto
 AC_ARG_ENABLE(eet,
@@ -63,7 +62,6 @@ fi
 
 AM_CONDITIONAL(BUILD_ANI_LOADER, test x$ani != xno)
 AM_CONDITIONAL(BUILD_EET_LOADER, test x$eet != xno)
-AM_CONDITIONAL(BUILD_ICO_LOADER, test x$ico != xno)
 AM_CONDITIONAL(BUILD_XCF_LOADER, test x$xcf != xno)
 
 EC_C_WARNINGS()
@@ -95,7 +93,6 @@ echo
 echo "Image loaders:"
 echo "  ANI.....................: $ani"
 echo "  EET.....................: $eet"
-echo "  ICO.....................: $ico"
 echo "  XCF.....................: $xcf"
 echo
 echo "Use visibility hiding.....: $enable_visibility_hiding"
