@@ -1,18 +1,13 @@
-Summary: Additional image loaders for Imlib2
-Name: @PACKAGE@
-Version: @VERSION@
-Release: 0.%(date '+%Y%m%d')
-License: Mixed
-Group: System Environment/Libraries
-URL: http://www.enlightenment.org
-Source: %{name}-%{version}.tar.gz
-Packager: %{?_packager:%{_packager}}%{!?_packager:Michael Jennings <mej@eterm.org>}
-Vendor: %{?_vendorinfo:%{_vendorinfo}}%{!?_vendorinfo:The Enlightenment Project (http://www.enlightenment.org/)}
-Distribution: %{?_distribution:%{_distribution}}%{!?_distribution:%{_vendor}}
-#BuildSuggests: xorg-x11-devel freetype-devel freetype2-devel xproto
-BuildRequires: /usr/bin/freetype-config /usr/include/X11/X.h libjpeg-devel
-BuildRequires: eet-devel imlib2-devel
-BuildRoot: %{_tmppath}/%{name}-%{version}-root
+Summary:	Additional image loaders for Imlib2
+Name:		@PACKAGE@
+Version:	@VERSION@
+Release:	1.%(date '+%y%m%d')
+License:	Mixed
+Group:		System Environment/Libraries
+URL:		http://www.enlightenment.org
+Source:		%{name}-%{version}.tar.gz
+Vendor:		The Enlightenment Project (http://www.enlightenment.org/)
+BuildRoot:	%{_tmppath}/%{name}-%{version}-root
 
 %description
 This package contains additional image loaders for Imlib2 which for
@@ -23,14 +18,16 @@ directly.
 %setup -q
 
 %build
-%{configure} --prefix=%{_prefix}
-%{__make} %{?_smp_mflags} %{?mflags}
+%configure
+make %{?_smp_mflags}
 
 %install
-%{__make} %{?mflags_install} DESTDIR=$RPM_BUILD_ROOT install
+rm -rf $RPM_BUILD_ROOT
+make install DESTDIR=$RPM_BUILD_ROOT
+rm -f $RPM_BUILD_ROOT%{_libdir}/imlib2/loaders/*.la
 
 %clean
-test "x$RPM_BUILD_ROOT" != "x/" && rm -rf $RPM_BUILD_ROOT
+rm -rf $RPM_BUILD_ROOT
 
 %post
 /sbin/ldconfig
@@ -39,7 +36,6 @@ test "x$RPM_BUILD_ROOT" != "x/" && rm -rf $RPM_BUILD_ROOT
 /sbin/ldconfig
 
 %files
-%defattr(-, root, root)
 %{_libdir}/imlib2/loaders/*
 
 %changelog
