@@ -121,7 +121,7 @@ ani_init(char *filename)
       return NULL;
 
    if (!(ani->fp = fopen(filename, "r")))
-      return NULL;
+      goto bail;
 
    ani->filename = filename;
    ani->cp += ani_read_int32(ani->fp, &ani->riff_id, 1);
@@ -129,12 +129,13 @@ ani_init(char *filename)
    ani->cp += ani_read_int32(ani->fp, &ani->chunk_id, 1);
 
    if (ani->riff_id != 0x46464952 || ani->chunk_id != 0x4E4F4341)
-     {
-        ani_cleanup(ani);
-        return NULL;
-     }
+      goto bail;
 
    return ani;
+
+ bail:
+   ani_cleanup(ani);
+   return NULL;
 }
 
 static void
