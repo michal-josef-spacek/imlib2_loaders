@@ -73,10 +73,6 @@ load(ImlibImage * im, ImlibProgressFunction progress,
    DATA32             *ret;
    DATA32             *body;
 
-   if (im->data)
-      return 0;
-   if ((!im->file) || (!im->real_file) || (!im->key))
-      return 0;
    strcpy(file, im->real_file);
    strcpy(key, im->key);
    if (!can_read(file))
@@ -133,14 +129,10 @@ load(ImlibImage * im, ImlibProgressFunction progress,
         }
       im->w = w;
       im->h = h;
-      if (!im->format)
-        {
-           if (alpha)
-              SET_FLAG(im->flags, F_HAS_ALPHA);
-           else
-              UNSET_FLAG(im->flags, F_HAS_ALPHA);
-           im->format = strdup("eet");
-        }
+      if (alpha)
+         SET_FLAG(im->flags, F_HAS_ALPHA);
+      else
+         UNSET_FLAG(im->flags, F_HAS_ALPHA);
    }
    if (((!im->data) && (im->loader)) || (immediate_load) || (progress))
      {

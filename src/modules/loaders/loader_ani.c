@@ -256,18 +256,6 @@ load(ImlibImage * im, ImlibProgressFunction progress, char progress_granularity,
    MsAni              *ani = NULL;
    MsChunk            *chunk;
 
-   /* if immediate_load is 1, then dont delay image laoding as below, or */
-   /* already data in this image - dont load it again */
-   if (im->data)
-      return 0;
-
-   /* set the format string member to the lower-case full extension */
-   /* name for the format - so example names would be: */
-   /* "png", "jpeg", "tiff", "ppm", "pgm", "pbm", "gif", "xpm" ... */
-
-   if (!im->format)
-      im->format = strdup("ani");
-
    if (im->loader || immediate_load || progress)
      {
         if (!(ani = ani_init((im->real_file))))
