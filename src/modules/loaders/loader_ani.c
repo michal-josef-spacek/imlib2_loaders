@@ -86,7 +86,7 @@ ani_read_int8(FILE * fp, DATA8 * data, int count)
    total = count;
    while (count > 0)
      {
-        bytes = fread((char *)data, sizeof(char), count, fp);
+        bytes = fread(data, 1, count, fp);
         if (bytes <= 0)         /* something bad happened */
            break;
         count -= bytes;
