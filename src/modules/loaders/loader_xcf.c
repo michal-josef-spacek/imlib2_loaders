@@ -847,7 +847,7 @@ xcf_load_layer_props(Layer * layer)
    return 0;
 }
 
-static void
+static int
 read_tiles_into_data(Tile * tiles, int num_cols, int width,
                      int height, int bpp, DATA32 ** data_p, int use_cmap)
 {
@@ -859,7 +859,7 @@ read_tiles_into_data(Tile * tiles, int num_cols, int width,
    int                 warned = 0;
 
    if (!tiles)
-      return;
+      return 0;
 
    if (*data_p)
       free(*data_p);
@@ -948,6 +948,8 @@ read_tiles_into_data(Tile * tiles, int num_cols, int width,
              *data++ = PIXEL_ARGB(a, r, g, b);
           }
      }
+
+   return warned;
 }
 
 static int
@@ -1291,8 +1293,7 @@ xcf_load_channel(void)
 {
    Layer              *layer;
    DATA32              hierarchy_offset;
-   int                 width;
-   int                 height;
+   int                 err, width, height;
    char               *name;
 
    D("Loading channel ...\n");
@@ -1323,10 +1324,12 @@ xcf_load_channel(void)
        (&(layer->tiles), &(layer->num_rows), &(layer->num_cols), &(layer->bpp)))
       goto error;
 
-   read_tiles_into_data(layer->tiles, layer->num_cols, layer->width,
-                        layer->height, layer->bpp, &(layer->data), 0);
+   err = read_tiles_into_data(layer->tiles, layer->num_cols, layer->width,
+                              layer->height, layer->bpp, &(layer->data), 0);
    free_tiles(layer->tiles, layer->num_rows * layer->num_cols);
    layer->tiles = NULL;
+   if (err)
+      goto error;
 
    D("Channel loaded successfully.\n");
 
@@ -1344,9 +1347,7 @@ xcf_load_layer(void)
    Layer              *layer_mask;
    DATA32              hierarchy_offset;
    DATA32              layer_mask_offset;
-   int                 width;
-   int                 height;
-   int                 type;
+   int                 err, width, height, type;
    char               *name;
 
    D("Loading one layer ...\n");
@@ -1400,11 +1401,13 @@ xcf_load_layer(void)
         layer->mask = layer_mask;
      }
 
-   read_tiles_into_data(layer->tiles, layer->num_cols,
-                        layer->width, layer->height,
-                        layer->bpp, &(layer->data), 1);
+   err = read_tiles_into_data(layer->tiles, layer->num_cols,
+                              layer->width, layer->height,
+                              layer->bpp, &(layer->data), 1);
    free_tiles(layer->tiles, layer->num_rows * layer->num_cols);
    layer->tiles = NULL;
+   if (err)
+      goto error;
 
    set_layer_opacity(layer);
 
@@ -1418,7 +1421,7 @@ xcf_load_layer(void)
    return NULL;
 }
 
-static void
+static int
 xcf_load_image(void)
 {
    Layer              *layer;
@@ -1488,7 +1491,7 @@ xcf_load_image(void)
    /* Flat-o-rama now :) */
    flatten_image();
 
-   return;
+   return 1;                    /* Success */
 
  error:
    if (num_successful_elements == 0)
@@ -1496,13 +1499,12 @@ xcf_load_image(void)
 
    fprintf(stderr,
            "XCF: This file is corrupt!  I have loaded as much of it as I can, but it is incomplete.\n");
-
-   return;
+   return 0;
 
  hard_error:
    fprintf(stderr,
            "XCF: This file is corrupt!  I could not even salvage any partial image data from it.\n");
-   return;
+   return 0;
 }
 
 static int
@@ -1593,12 +1595,15 @@ char
 load(ImlibImage * im, ImlibProgressFunction progress, char progress_granularity,
      char immediate_load)
 {
+   int                 rc = 0;
+
    /* initialize */
    if (!xcf_file_init(im->real_file))
       return 0;
 
    /* do it! */
-   xcf_load_image();
+   if (!xcf_load_image())
+      goto quit;
 
    /* Now paste stuff into Imlib image */
    xcf_to_imlib(im);
@@ -1609,10 +1614,13 @@ load(ImlibImage * im, ImlibProgressFunction progress, char progress_granularity,
         progress(im, 100, 0, 0, im->w, im->h);
      }
 
+   rc = 1;                      /* Success */
+
+ quit:
    /* cleanup */
    xcf_cleanup();
 
-   return 1;
+   return rc;
 }
 
 void
