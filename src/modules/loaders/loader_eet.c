@@ -1,5 +1,5 @@
 #ifdef HAVE_CONFIG_H
-#  include <config.h>
+#include <config.h>
 #endif
 
 #include <string.h>
@@ -23,7 +23,7 @@ static int
 permissions(char *file)
 {
    struct stat         st;
-   
+
    if (stat(file, &st) < 0)
       return 0;
    return st.st_mode;
@@ -33,7 +33,7 @@ static int
 exists(char *file)
 {
    struct stat         st;
-   
+
    if (stat(file, &st) < 0)
       return 0;
    return 1;
@@ -44,9 +44,9 @@ can_read(char *file)
 {
 #ifndef __EMX__
    if (!(permissions(file) & (S_IRUSR | S_IRGRP | S_IROTH)))
-#else   
+#else
    if (!(permissions(file)))
-#endif   
+#endif
       return 0;
    return (1 + access(file, R_OK));
 }
@@ -56,208 +56,209 @@ can_write(char *file)
 {
 #ifndef __EMX__
    if (!(permissions(file) & (S_IWUSR | S_IWGRP | S_IWOTH)))
-#else   
+#else
    if (!(permissions(file)))
-#endif   
+#endif
       return 0;
    return (1 + access(file, W_OK));
 }
 
-char 
-load (ImlibImage *im, ImlibProgressFunction progress,
-      char progress_granularity, char immediate_load)
+char
+load(ImlibImage * im, ImlibProgressFunction progress,
+     char progress_granularity, char immediate_load)
 {
-   int                  w, h, alpha, compression, size;
-   Eet_File            *ef;
-   char                 file[4096], key[4096];
-   DATA32              *ret;
-   DATA32              *body;
-   
+   int                 w, h, alpha, compression, size;
+   Eet_File           *ef;
+   char                file[4096], key[4096];
+   DATA32             *ret;
+   DATA32             *body;
+
    if (im->data)
       return 0;
    if ((!im->file) || (!im->real_file) || (!im->key))
       return 0;
    strcpy(file, im->real_file);
    strcpy(key, im->key);
-   if (!can_read(file)) return 0;
+   if (!can_read(file))
+      return 0;
    ef = eet_open(file, EET_FILE_MODE_READ);
    if (!ef)
       return 0;
    ret = eet_read(ef, key, &size);
    if (!ret)
      {
-	eet_close(ef);
-	return 0;
+        eet_close(ef);
+        return 0;
      }
    /* header */
-     {
-	DATA32 header[8];
-	
-	if (size < 32)
-	  {
-	     free(ret);
-	     eet_close(ef);
-	     return 0;
-	  }
-	memcpy(header, ret, 32);
+   {
+      DATA32              header[8];
+
+      if (size < 32)
+        {
+           free(ret);
+           eet_close(ef);
+           return 0;
+        }
+      memcpy(header, ret, 32);
 #ifdef WORDS_BIGENDIAN
-	  {
-	     int i;
-	     for (i = 0; i < 8; i++)
-		SWAP32(header[i]);
-	  }
+      {
+         int                 i;
+
+         for (i = 0; i < 8; i++)
+            SWAP32(header[i]);
+      }
 #endif
-	if (header[0] != 0xac1dfeed)
-	  {
-	     free(ret);
-	     eet_close(ef);
-	     return 0;
-	  }
-	w = header[1];
-	h = header[2];
-	alpha = header[3];
-	compression = header[4];
-	if ((w > 8192) || (h > 8192))
-	  {
-	     free(ret);
-	     eet_close(ef);
-	     return 0;
-	  }
-	if ((compression == 0) && (size < ((w * h * 4) + 32)))
-	  {
-	     free(ret);
-	     eet_close(ef);
-	     return 0;
-	  }
-	im->w = w;
-	im->h = h;
-	if (!im->format)
-	  {
-	     if (alpha)
-		SET_FLAG(im->flags, F_HAS_ALPHA);
-	     else
-		UNSET_FLAG(im->flags, F_HAS_ALPHA);
-	     im->format = strdup("eet");
-	  }
-     }
+      if (header[0] != 0xac1dfeed)
+        {
+           free(ret);
+           eet_close(ef);
+           return 0;
+        }
+      w = header[1];
+      h = header[2];
+      alpha = header[3];
+      compression = header[4];
+      if ((w > 8192) || (h > 8192))
+        {
+           free(ret);
+           eet_close(ef);
+           return 0;
+        }
+      if ((compression == 0) && (size < ((w * h * 4) + 32)))
+        {
+           free(ret);
+           eet_close(ef);
+           return 0;
+        }
+      im->w = w;
+      im->h = h;
+      if (!im->format)
+        {
+           if (alpha)
+              SET_FLAG(im->flags, F_HAS_ALPHA);
+           else
+              UNSET_FLAG(im->flags, F_HAS_ALPHA);
+           im->format = strdup("eet");
+        }
+   }
    if (((!im->data) && (im->loader)) || (immediate_load) || (progress))
      {
-	DATA32 *ptr;
-	int     y, pl = 0;
-	char    pper = 0;
+        DATA32             *ptr;
+        int                 y, pl = 0;
+        char                pper = 0;
 
-	body = &(ret[8]);
-	/* must set the im->data member before callign progress function */
-	if (!compression)
-	  {
-	     if (progress)
-	       {
-		  char per;
-		  int l;
-		  
-		  ptr = im->data = malloc(w * h * sizeof(DATA32));
-		  if (!im->data)
-		    {
-		       free(ret);
-		       eet_close(ef);
-		       return 0;
-		    }
-		  for (y = 0; y < h; y++)
-		    {
+        body = &(ret[8]);
+        /* must set the im->data member before callign progress function */
+        if (!compression)
+          {
+             if (progress)
+               {
+                  char                per;
+                  int                 l;
+
+                  ptr = im->data = malloc(w * h * sizeof(DATA32));
+                  if (!im->data)
+                    {
+                       free(ret);
+                       eet_close(ef);
+                       return 0;
+                    }
+                  for (y = 0; y < h; y++)
+                    {
 #ifdef WORDS_BIGENDIAN
-			 {
-			    int x;
-			    
-			    memcpy(ptr, &(body[y * w]), im->w * sizeof(DATA32));
-			    for (x = 0; x < im->w; x++)
-			      SWAP32(ptr[x]);
-			 }
+                       {
+                          int                 x;
+
+                          memcpy(ptr, &(body[y * w]), im->w * sizeof(DATA32));
+                          for (x = 0; x < im->w; x++)
+                             SWAP32(ptr[x]);
+                       }
 #else
-		       memcpy(ptr, &(body[y * w]), im->w * sizeof(DATA32));
-#endif	     
-		       ptr += im->w;
-		       
-		       per = (char)((100 * y) / im->h);
-		       if (((per - pper) >= progress_granularity) ||
-			   (y == (im->h - 1)))
-			 {
-			    l = y - pl;
-			    if(!progress(im, per, 0, (y - l), im->w, l))
-			      {
-				 free(ret);
-				 eet_close(ef);
-				 return 2;
-			      }
-			    pper = per;
-			    pl = y;
-			 }
-		    }
-	       }
-	     else
-	       {
-		  ptr = im->data = malloc(w * h * sizeof(DATA32));
-		  if (!im->data)
-		    {
-		       free(ret);
-		       eet_close(ef);
-		       return 0;
-		    }
+                       memcpy(ptr, &(body[y * w]), im->w * sizeof(DATA32));
+#endif
+                       ptr += im->w;
+
+                       per = (char)((100 * y) / im->h);
+                       if (((per - pper) >= progress_granularity) ||
+                           (y == (im->h - 1)))
+                         {
+                            l = y - pl;
+                            if (!progress(im, per, 0, (y - l), im->w, l))
+                              {
+                                 free(ret);
+                                 eet_close(ef);
+                                 return 2;
+                              }
+                            pper = per;
+                            pl = y;
+                         }
+                    }
+               }
+             else
+               {
+                  ptr = im->data = malloc(w * h * sizeof(DATA32));
+                  if (!im->data)
+                    {
+                       free(ret);
+                       eet_close(ef);
+                       return 0;
+                    }
 #ifdef WORDS_BIGENDIAN
-		    {
-		       int x;
-		       
-		       memcpy(ptr, body, im->w * im->h * sizeof(DATA32));
-		       for (x = 0; x < (im->w * im->h); x++)
-			 SWAP32(ptr[x]);
-		    }
+                  {
+                     int                 x;
+
+                     memcpy(ptr, body, im->w * im->h * sizeof(DATA32));
+                     for (x = 0; x < (im->w * im->h); x++)
+                        SWAP32(ptr[x]);
+                  }
 #else
-		  memcpy(ptr, body, im->w * im->h * sizeof(DATA32));
-#endif	     
-	       }
-	  }
-	else
-	  {
-	     uLongf dlen;
-	     
-	     dlen = w * h * sizeof(DATA32);
-	     im->data = malloc(w * h * sizeof(DATA32));
-	     if (!im->data)
-	       {
-		  free(ret);
-		  eet_close(ef);
-		  return 0;
-	       }
-	     uncompress((Bytef *)im->data, &dlen, (Bytef *)body, (uLongf)(size - 32));
+                  memcpy(ptr, body, im->w * im->h * sizeof(DATA32));
+#endif
+               }
+          }
+        else
+          {
+             uLongf              dlen;
+
+             dlen = w * h * sizeof(DATA32);
+             im->data = malloc(w * h * sizeof(DATA32));
+             if (!im->data)
+               {
+                  free(ret);
+                  eet_close(ef);
+                  return 0;
+               }
+             uncompress((Bytef *) im->data, &dlen, (Bytef *) body,
+                        (uLongf) (size - 32));
 #ifdef WORDS_BIGENDIAN
-	       {
-		  int x;
-		  
-		  for (x = 0; x < (im->w * im->h); x++)
-		     SWAP32(im->data[x]);
-	       }
-#endif			
-	     if (progress)
-		progress(im, 100, 0, 0, im->w, im->h);	     
-	  }
+             {
+                int                 x;
+
+                for (x = 0; x < (im->w * im->h); x++)
+                   SWAP32(im->data[x]);
+             }
+#endif
+             if (progress)
+                progress(im, 100, 0, 0, im->w, im->h);
+          }
      }
    free(ret);
    eet_close(ef);
    return 1;
 }
 
-char 
-save (ImlibImage *im, ImlibProgressFunction progress,
-      char progress_granularity)
+char
+save(ImlibImage * im, ImlibProgressFunction progress, char progress_granularity)
 {
    int                 alpha = 0;
-   char                 file[4096], key[4096], *tmp;
-   DATA32              *header;
-   DATA32              *buf;
-   Eet_File            *ef;
-   int                  compression = 0, size = 0;
-   DATA32              *ret;
-   
-   
+   char                file[4096], key[4096], *tmp;
+   DATA32             *header;
+   DATA32             *buf;
+   Eet_File           *ef;
+   int                 compression = 0, size = 0;
+   DATA32             *ret;
+
    /* no image data? abort */
    if (!im->data)
       return 0;
@@ -266,109 +267,110 @@ save (ImlibImage *im, ImlibProgressFunction progress,
    if ((!im->file) || (!im->real_file))
       return 0;
    strcpy(file, im->real_file);
-   
+
    tmp = strrchr(file, ':');
-   if(!tmp)
+   if (!tmp)
       return 0;
    *tmp++ = '\0';
-   if(!*tmp)
+   if (!*tmp)
       return 0;
    strcpy(key, tmp);
-   
+
    if (exists(file))
      {
-	if (!can_write(file)) return 0;
-	if (!can_read(file)) return 0;
+        if (!can_write(file))
+           return 0;
+        if (!can_read(file))
+           return 0;
      }
    ef = eet_open(file, EET_FILE_MODE_WRITE);
    if (!ef)
       return 0;
-   
+
    /* account for space for compression */
-   buf = (DATA32 *) malloc((((im->w * im->h * 101) / 100) + 3 + 8) * sizeof(DATA32));   
+   buf = malloc((((im->w * im->h * 101) / 100) + 3 + 8) * sizeof(DATA32));
    header = buf;
    header[0] = 0xac1dfeed;
    header[1] = im->w;
    header[2] = im->h;
    header[3] = alpha;
-     {
-	ImlibImageTag      *tag;
-	
-	tag = __imlib_GetTag(im, "compression");
-	if (!tag)
-	   header[4] = 0;
-	else
-	  {
-	     compression = tag->val;
-	     if (compression < 0)
-		compression = 0;
-	     else if (compression > 9)
-		compression = 9;
-	     header[4] = compression;
-	  }
-     }
+   {
+      ImlibImageTag      *tag;
+
+      tag = __imlib_GetTag(im, "compression");
+      if (!tag)
+         header[4] = 0;
+      else
+        {
+           compression = tag->val;
+           if (compression < 0)
+              compression = 0;
+           else if (compression > 9)
+              compression = 9;
+           header[4] = compression;
+        }
+   }
    if (compression > 0)
      {
-	DATA32 *compressed;
-	int retr;
-	uLongf buflen;
-	
-	compressed = &(buf[8]);
-	buflen = ((im->w * im->h * sizeof(DATA32) * 101) / 100) + 12;
-#ifdef WORDS_BIGENDIAN
-	  {
-	     int i;
-	     DATA32 *buf2;
+        DATA32             *compressed;
+        int                 retr;
+        uLongf              buflen;
 
-	     for (i = 0; i < 8; i++)
-		SWAP32(header[i]);
-	     
-	     buf2 = malloc((((im->w * im->h * 101) / 100) + 3) * sizeof(DATA32));
-	     if (buf2)
-	       {
-		  int y;
-		  
-		  memcpy(buf2, im->data, im->w * im->h * sizeof(DATA32));
-		  for (y = 0; y < (im->w * im->h) + 8; y++)
-		     SWAP32(buf2[y]);
-		  retr = compress2((Bytef *)compressed, &buflen, 
-				   (Bytef *)buf2, 
-				   (uLong)(im->w * im->h * sizeof(DATA32)), 
-				   compression);
-		  free(buf2);
-	       }
-	     else
-		retr = Z_MEM_ERROR;
-	  }
+        compressed = &(buf[8]);
+        buflen = ((im->w * im->h * sizeof(DATA32) * 101) / 100) + 12;
+#ifdef WORDS_BIGENDIAN
+        {
+           int                 i;
+           DATA32             *buf2;
+
+           for (i = 0; i < 8; i++)
+              SWAP32(header[i]);
+
+           buf2 = malloc((((im->w * im->h * 101) / 100) + 3) * sizeof(DATA32));
+           if (buf2)
+             {
+                int                 y;
+
+                memcpy(buf2, im->data, im->w * im->h * sizeof(DATA32));
+                for (y = 0; y < (im->w * im->h) + 8; y++)
+                   SWAP32(buf2[y]);
+                retr = compress2((Bytef *) compressed, &buflen,
+                                 (Bytef *) buf2,
+                                 (uLong) (im->w * im->h * sizeof(DATA32)),
+                                 compression);
+                free(buf2);
+             }
+           else
+              retr = Z_MEM_ERROR;
+        }
 #else
-	retr = compress2((Bytef *)compressed, &buflen, 
-			 (Bytef *)im->data, 
-			 (uLong)(im->w * im->h * sizeof(DATA32)), 
-			 compression);
+        retr = compress2((Bytef *) compressed, &buflen,
+                         (Bytef *) im->data,
+                         (uLong) (im->w * im->h * sizeof(DATA32)), compression);
 #endif
-	if (retr != Z_OK)
-	   compressed = 0;
-	else
-	  {
-	     if (buflen >= (im->w * im->h * sizeof(DATA32)))
-		compressed = 0;
-	     else
-		size = (8 * sizeof(DATA32)) + buflen;
-	  }
+        if (retr != Z_OK)
+           compressed = 0;
+        else
+          {
+             if (buflen >= (im->w * im->h * sizeof(DATA32)))
+                compressed = 0;
+             else
+                size = (8 * sizeof(DATA32)) + buflen;
+          }
      }
    else
      {
-	memcpy(&(buf[8]), im->data, im->w * im->h * sizeof(DATA32));
-	header[4] = compression;
+        memcpy(&(buf[8]), im->data, im->w * im->h * sizeof(DATA32));
+        header[4] = compression;
 #ifdef WORDS_BIGENDIAN
-	  {
-	     int y;
-	     
-	     for (y = 0; y < (im->w * im->h) + 8; y++)
-		SWAP32(buf[y]);
-	  }
+        {
+           int                 y;
+
+           for (y = 0; y < (im->w * im->h) + 8; y++)
+              SWAP32(buf[y]);
+        }
 #endif
-	size = ((im->w * im->h) + 8) * sizeof(DATA32);
+        size = ((im->w * im->h) + 8) * sizeof(DATA32);
      }
    ret = buf;
    eet_write(ef, key, ret, size, 0);

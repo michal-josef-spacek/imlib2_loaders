@@ -24,7 +24,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
 #ifdef HAVE_CONFIG_H
-#  include <config.h>
+#include <config.h>
 #endif
 
 #include <stdio.h>
@@ -56,281 +56,268 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #define ENDIAN_SWAP(x) (x)
 #endif
 
-
-typedef struct _MsChunk
-{
-  struct _MsChunk     *next;
-  DATA32       chunk_id;
-  DATA32       chunk_size;  /* Size of this chunk, starting from */
-  DATA8        data;        /* the following byte. Thus chunk_size = full size - 8 */
+typedef struct _MsChunk {
+   struct _MsChunk    *next;
+   DATA32              chunk_id;
+   DATA32              chunk_size;      /* Size of this chunk, starting from */
+   DATA8               data;    /* the following byte. Thus chunk_size = full size - 8 */
 } MsChunk;
 
-typedef struct _MsAni
-{
-  char        *filename;
-  FILE        *fp;
-  DATA32       cp;
+typedef struct _MsAni {
+   char               *filename;
+   FILE               *fp;
+   DATA32              cp;
 
-  DATA32       riff_id;     /* "RIFF" */
-  DATA32       data_size;
-  DATA32       chunk_id;    /* "ACON" */
-  
-  MsChunk     *chunks;
+   DATA32              riff_id; /* "RIFF" */
+   DATA32              data_size;
+   DATA32              chunk_id;        /* "ACON" */
+
+   MsChunk            *chunks;
 } MsAni;
 
-static void        ani_cleanup (MsAni *ani);
-
-
-static int
-ani_read_int8 (FILE     *fp,
-	       DATA8    *data,
-	       int       count)
-{
-  int total;
-  int bytes;
-
-  total = count;
-  while (count > 0)
-    {
-      bytes = fread ((char*) data, sizeof (char), count, fp);
-      if (bytes <= 0) /* something bad happened */
-        break;
-      count -= bytes;
-      data += bytes;
-    }
-
-  return total;
-}
-
+static void         ani_cleanup(MsAni * ani);
 
 static int
-ani_read_int32 (FILE     *fp,
-		DATA32   *data,
-		int       count)
+ani_read_int8(FILE * fp, DATA8 * data, int count)
 {
-  int i, total;
+   int                 total;
+   int                 bytes;
 
-  total = count;
-  if (count > 0)
-    {
-      ani_read_int8 (fp, (DATA8*) data, count * 4);
-      for (i = 0; i < count; i++)
-         data[i] = ENDIAN_SWAP(data[i]);
-    }
+   total = count;
+   while (count > 0)
+     {
+        bytes = fread((char *)data, sizeof(char), count, fp);
+        if (bytes <= 0)         /* something bad happened */
+           break;
+        count -= bytes;
+        data += bytes;
+     }
 
-  return total * 4;
+   return total;
 }
 
-
-static MsAni    *
-ani_init (char *filename)
+static int
+ani_read_int32(FILE * fp, DATA32 * data, int count)
 {
-  MsAni *ani;
+   int                 i, total;
 
-  if (! (ani = (MsAni*) calloc(1, sizeof(MsAni))))
-    return NULL;
-      
-  if (! (ani->fp = fopen (filename, "r")))
-    return NULL;
+   total = count;
+   if (count > 0)
+     {
+        ani_read_int8(fp, (DATA8 *) data, count * 4);
+        for (i = 0; i < count; i++)
+           data[i] = ENDIAN_SWAP(data[i]);
+     }
 
-  ani->filename = filename;
-  ani->cp += ani_read_int32(ani->fp, &ani->riff_id, 1);
-  ani->cp += ani_read_int32(ani->fp, &ani->data_size, 1);
-  ani->cp += ani_read_int32(ani->fp, &ani->chunk_id, 1);
+   return total * 4;
+}
 
-  if (ani->riff_id != 0x46464952 || ani->chunk_id != 0x4E4F4341)
-    {
-      ani_cleanup(ani);
+static MsAni       *
+ani_init(char *filename)
+{
+   MsAni              *ani;
+
+   if (!(ani = calloc(1, sizeof(MsAni))))
       return NULL;
-    }
 
-  return ani;
+   if (!(ani->fp = fopen(filename, "r")))
+      return NULL;
+
+   ani->filename = filename;
+   ani->cp += ani_read_int32(ani->fp, &ani->riff_id, 1);
+   ani->cp += ani_read_int32(ani->fp, &ani->data_size, 1);
+   ani->cp += ani_read_int32(ani->fp, &ani->chunk_id, 1);
+
+   if (ani->riff_id != 0x46464952 || ani->chunk_id != 0x4E4F4341)
+     {
+        ani_cleanup(ani);
+        return NULL;
+     }
+
+   return ani;
 }
-
 
 static void
-ani_cleanup (MsAni *ani)
+ani_cleanup(MsAni * ani)
 {
-  MsChunk *c, *c_next;
+   MsChunk            *c, *c_next;
 
-  D("Failed to allocate ANI image. Cleaning up\n");
+   D("Failed to allocate ANI image. Cleaning up\n");
 
-  if (!ani)
-    return;
+   if (!ani)
+      return;
 
-  if (ani->fp)
-    fclose(ani->fp);
+   if (ani->fp)
+      fclose(ani->fp);
 
-  for (c = ani->chunks; c; )
-    {
-      c_next = c->next;
-      free(c);
-      c = c_next;
-    }
+   for (c = ani->chunks; c;)
+     {
+        c_next = c->next;
+        free(c);
+        c = c_next;
+     }
 
-  free (ani);
+   free(ani);
 }
 
-
-static MsChunk*
-ani_load_chunk(MsAni *ani)
+static MsChunk     *
+ani_load_chunk(MsAni * ani)
 {
-  DATA32   chunk_id, chunk_size, dummy;
-  MsChunk *chunk;
+   DATA32              chunk_id, chunk_size, dummy;
+   MsChunk            *chunk;
 
-  if (ani->cp >= ani->data_size + 8)
-    return NULL;
-
-  ani->cp += ani_read_int32(ani->fp, &chunk_id, 1);
-
-  while (chunk_id == 0x5453494C)
-    {
-      D("Skipping LIST chunk header ...\n");
-      ani->cp += ani_read_int32(ani->fp, &dummy, 1);
-      ani->cp += ani_read_int32(ani->fp, &dummy, 1);
-      ani->cp += ani_read_int32(ani->fp, &chunk_id, 1);
-    }
-
-  ani->cp += ani_read_int32(ani->fp, &chunk_size, 1);
-
-  /* Pad it up to word length */
-  if (chunk_size % 2)
-    chunk_size += (2 - (chunk_size % 2));
-
-  chunk = (MsChunk*) calloc(1, sizeof(MsChunk*) + 2 * sizeof(DATA32) + chunk_size);
-
-  if (!chunk)
-    {
-      D("Warning, failed to allocate ANI chunk of size %d\n", sizeof(MsChunk*)
-		      + 2 * sizeof(DATA32) + chunk_size);
+   if (ani->cp >= ani->data_size + 8)
       return NULL;
-    }
 
-  chunk->chunk_id = chunk_id;
-  chunk->chunk_size = chunk_size;
+   ani->cp += ani_read_int32(ani->fp, &chunk_id, 1);
 
-  chunk_id = ENDIAN_SWAP(chunk_id);
+   while (chunk_id == 0x5453494C)
+     {
+        D("Skipping LIST chunk header ...\n");
+        ani->cp += ani_read_int32(ani->fp, &dummy, 1);
+        ani->cp += ani_read_int32(ani->fp, &dummy, 1);
+        ani->cp += ani_read_int32(ani->fp, &chunk_id, 1);
+     }
 
-  D("Loaded chunk with ID '%c%c%c%c' and length %i\n",
-    ((char*)&chunk_id)[0], ((char*)&chunk_id)[1],
-    ((char*)&chunk_id)[2], ((char*)&chunk_id)[3], chunk_size);
-  
-  ani->cp += ani_read_int8(ani->fp, &chunk->data, chunk_size);
-  
-  return chunk;
+   ani->cp += ani_read_int32(ani->fp, &chunk_size, 1);
+
+   /* Pad it up to word length */
+   if (chunk_size % 2)
+      chunk_size += (2 - (chunk_size % 2));
+
+   chunk = calloc(1, sizeof(MsChunk *) + 2 * sizeof(DATA32) + chunk_size);
+   if (!chunk)
+     {
+        D("Warning, failed to allocate ANI chunk of size %d\n",
+          sizeof(MsChunk *) + 2 * sizeof(DATA32) + chunk_size);
+        return NULL;
+     }
+
+   chunk->chunk_id = chunk_id;
+   chunk->chunk_size = chunk_size;
+
+   chunk_id = ENDIAN_SWAP(chunk_id);
+
+   D("Loaded chunk with ID '%c%c%c%c' and length %i\n",
+     ((char *)&chunk_id)[0], ((char *)&chunk_id)[1],
+     ((char *)&chunk_id)[2], ((char *)&chunk_id)[3], chunk_size);
+
+   ani->cp += ani_read_int8(ani->fp, &chunk->data, chunk_size);
+
+   return chunk;
 }
-
 
 static void
-ani_load (MsAni *ani)
+ani_load(MsAni * ani)
 {
-  MsChunk *last_chunk;
-  MsChunk *chunk;
+   MsChunk            *last_chunk;
+   MsChunk            *chunk;
 
-  if (!ani)
-    return;
+   if (!ani)
+      return;
 
-  ani->chunks = ani_load_chunk(ani);
-  last_chunk = ani->chunks;
-  if (!last_chunk)
-    return;
+   ani->chunks = ani_load_chunk(ani);
+   last_chunk = ani->chunks;
+   if (!last_chunk)
+      return;
 
-  while ( (chunk = ani_load_chunk(ani)))
-    {
-      last_chunk->next = chunk;
-      last_chunk = chunk;
-    }
+   while ((chunk = ani_load_chunk(ani)))
+     {
+        last_chunk->next = chunk;
+        last_chunk = chunk;
+     }
 }
 
-
-static char *
-ani_save_ico (MsChunk *chunk)
+static char        *
+ani_save_ico(MsChunk * chunk)
 {
-  char *temp;
-  FILE *f;
+   char               *temp;
+   FILE               *f;
 
-  if ( !(temp = tempnam(NULL, "ico_")))
-    return NULL;
-
-  if ( !(f = fopen(temp, "w+")))
-    {
-      free(temp);
+   if (!(temp = tempnam(NULL, "ico_")))
       return NULL;
-    }
 
-  fwrite(&chunk->data, chunk->chunk_size, 1, f);
-  fclose(f);
+   if (!(f = fopen(temp, "w+")))
+     {
+        free(temp);
+        return NULL;
+     }
 
-  return temp;
+   fwrite(&chunk->data, chunk->chunk_size, 1, f);
+   fclose(f);
+
+   return temp;
 }
 
-
-char 
-load(ImlibImage *im, ImlibProgressFunction progress, char progress_granularity, char immediate_load)
+char
+load(ImlibImage * im, ImlibProgressFunction progress, char progress_granularity,
+     char immediate_load)
 {
-  MsAni *ani = NULL;
-  MsChunk *chunk;
+   MsAni              *ani = NULL;
+   MsChunk            *chunk;
 
-  /* if immediate_load is 1, then dont delay image laoding as below, or */
-  /* already data in this image - dont load it again */
-  if (im->data)
-    return 0;
+   /* if immediate_load is 1, then dont delay image laoding as below, or */
+   /* already data in this image - dont load it again */
+   if (im->data)
+      return 0;
 
-  /* set the format string member to the lower-case full extension */
-  /* name for the format - so example names would be: */
-  /* "png", "jpeg", "tiff", "ppm", "pgm", "pbm", "gif", "xpm" ... */
+   /* set the format string member to the lower-case full extension */
+   /* name for the format - so example names would be: */
+   /* "png", "jpeg", "tiff", "ppm", "pgm", "pbm", "gif", "xpm" ... */
 
-  if (!im->format)
-    im->format = strdup("ani");
+   if (!im->format)
+      im->format = strdup("ani");
 
-  if (im->loader || immediate_load || progress)
-    {
-      if (! (ani = ani_init((im->real_file))))
-	return 0;
+   if (im->loader || immediate_load || progress)
+     {
+        if (!(ani = ani_init((im->real_file))))
+           return 0;
 
-      ani_load (ani);
+        ani_load(ani);
 
-      for (chunk = ani->chunks; chunk; chunk = chunk->next)
-	{
-	  if (chunk->chunk_id == 0x6E6F6369)
-	    {
-	      ImlibImage *temp_im;
-	      char *filename;
+        for (chunk = ani->chunks; chunk; chunk = chunk->next)
+          {
+             if (chunk->chunk_id == 0x6E6F6369)
+               {
+                  ImlibImage         *temp_im;
+                  char               *filename;
 
-	      if ( !(filename = ani_save_ico(chunk)))
-		return 0;
+                  if (!(filename = ani_save_ico(chunk)))
+                     return 0;
 
-	      temp_im = __imlib_LoadImage(filename, progress, progress_granularity,
-					  immediate_load, 0, NULL);
+                  temp_im =
+                     __imlib_LoadImage(filename, progress, progress_granularity,
+                                       immediate_load, 0, NULL);
 
-	      im->w = temp_im->w;
-	      im->h = temp_im->h;
-	      SET_FLAG(im->flags, F_HAS_ALPHA);
+                  im->w = temp_im->w;
+                  im->h = temp_im->h;
+                  SET_FLAG(im->flags, F_HAS_ALPHA);
 
-	      if (! (im->data = (DATA32 *) malloc(sizeof(DATA32) * im->w * im->h)))
-		{
-		  free(filename);
-		  return 0;
-		}
+                  if (!(im->data = malloc(sizeof(DATA32) * im->w * im->h)))
+                    {
+                       free(filename);
+                       return 0;
+                    }
 
-	      memcpy(im->data, temp_im->data, sizeof(DATA32) * im->w * im->h);
-	      unlink(filename);
-	      free(filename);
-	      break;
-	    }
-	}
+                  memcpy(im->data, temp_im->data,
+                         sizeof(DATA32) * im->w * im->h);
+                  unlink(filename);
+                  free(filename);
+                  break;
+               }
+          }
 
-      ani_cleanup (ani);
-    }
-  
-  if (progress)
-    {
-      progress(im, 100, 0, 0, im->w, im->h);      
-    }
-  
-  return 1;
+        ani_cleanup(ani);
+     }
 
-  progress_granularity = 0;
+   if (progress)
+     {
+        progress(im, 100, 0, 0, im->w, im->h);
+     }
+
+   return 1;
+
+   progress_granularity = 0;
 }
 
 void
