@@ -231,30 +231,30 @@ ani_load(MsAni * ani)
 static char        *
 ani_save_ico(MsChunk * chunk)
 {
-   char               *temp;
-   FILE               *f;
+   static char         tmp[] = "/tmp/imlib2_loader_ani-XXXXXX";
+   int                 fd;
 
-   if (!(temp = tempnam(NULL, "ico_")))
+   fd = mkstemp(tmp);
+   if (fd < 0)
       return NULL;
 
-   if (!(f = fopen(temp, "w+")))
-     {
-        free(temp);
-        return NULL;
-     }
+   write(fd, &chunk->data, chunk->chunk_size);
+   close(fd);
 
-   fwrite(&chunk->data, chunk->chunk_size, 1, f);
-   fclose(f);
-
-   return temp;
+   return tmp;
 }
 
 char
 load(ImlibImage * im, ImlibProgressFunction progress, char progress_granularity,
      char immediate_load)
 {
+   ImlibLoader        *loader;
    MsAni              *ani = NULL;
    MsChunk            *chunk;
+
+   loader = __imlib_FindBestLoaderForFormat("ico", 0);
+   if (!loader)
+      return 0;
 
    if (im->loader || immediate_load || progress)
      {
@@ -267,30 +267,19 @@ load(ImlibImage * im, ImlibProgressFunction progress, char progress_granularity,
           {
              if (chunk->chunk_id == 0x6E6F6369)
                {
-                  ImlibImage         *temp_im;
-                  char               *filename;
+                  char               *file;
+                  char               *tmpfile;
 
-                  if (!(filename = ani_save_ico(chunk)))
+                  if (!(tmpfile = ani_save_ico(chunk)))
                      return 0;
 
-                  temp_im =
-                     __imlib_LoadImage(filename, progress, progress_granularity,
-                                       immediate_load, 0, NULL);
+                  file = im->real_file;
+                  im->real_file = tmpfile;
+                  loader->load(im, progress, progress_granularity,
+                               immediate_load);
+                  im->real_file = file;
 
-                  im->w = temp_im->w;
-                  im->h = temp_im->h;
-                  SET_FLAG(im->flags, F_HAS_ALPHA);
-
-                  if (!(im->data = malloc(sizeof(DATA32) * im->w * im->h)))
-                    {
-                       free(filename);
-                       return 0;
-                    }
-
-                  memcpy(im->data, temp_im->data,
-                         sizeof(DATA32) * im->w * im->h);
-                  unlink(filename);
-                  free(filename);
+                  unlink(tmpfile);
                   break;
                }
           }
