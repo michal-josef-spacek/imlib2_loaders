@@ -24,6 +24,7 @@ typedef int         (*ImlibProgressFunction)(ImlibImage * im, char percent,
                                              int update_x, int update_y,
                                              int update_w, int update_h);
 typedef void        (*ImlibDataDestructorFunction)(ImlibImage * im, void *data);
+typedef void       *(*ImlibImageDataMemoryFunction)(void *, size_t size);
 
 enum _iflags {
    F_NONE = 0,
@@ -66,6 +67,7 @@ struct _imlibimage {
    ImlibImageTag      *tags;
    char               *real_file;
    char               *key;
+   ImlibImageDataMemoryFunction data_memory_func;
 };
 
 #ifdef BUILD_X11
@@ -102,6 +104,10 @@ struct _imlibloader {
    ImlibLoader        *next;
 };
 
+DATA32             *__imlib_AllocateData(ImlibImage * im);
+void                __imlib_FreeData(ImlibImage * im);
+void                __imlib_ReplaceData(ImlibImage * im, DATA32 * new_data);
+
 void                __imlib_AttachTag(ImlibImage * im, const char *key,
                                       int val, void *data,
                                       ImlibDataDestructorFunction destructor);
@@ -137,9 +143,8 @@ void                __imlib_CleanupImagePixmapCache(void);
 void                __imlib_RemoveAllLoaders(void);
 ImlibLoader        *__imlib_FindBestLoaderForFile(const char *file,
                                                   int for_save);
-ImlibLoader        *__imlib_FindBestLoaderForFileFormat(const char *file,
-                                                        char *format,
-                                                        int for_save);
+ImlibLoader        *__imlib_FindBestLoaderForFormat(const char *format,
+                                                    int for_save);
 void                __imlib_SetImageAlphaFlag(ImlibImage * im, char alpha);
 ImlibImage         *__imlib_CreateImage(int w, int h, DATA32 * data);
 ImlibImage         *__imlib_LoadImage(const char *file,
@@ -180,12 +185,14 @@ void                __imlib_SaveImage(ImlibImage * im, const char *file,
 #define SET_FLAG(flags, f) ((flags) |= (f))
 #define UNSET_FLAG(flags, f) ((flags) &= (~f))
 
-/* The maximum pixmap dimension is 65535. */
-/* However, for now, use 46340 (46340^2 < 2^31) to avoid buffer overflow issues. */
-/* Reduced further to 32767, so that (w * h * sizeof(DATA32)) won't exceed ULONG_MAX */
+/* 32767 is the maximum pixmap dimension and ensures that
+ * (w * h * sizeof(DATA32)) won't exceed ULONG_MAX */
 #define X_MAX_DIM 32767
+/* NB! The image dimensions are sometimes used in (dim << 16) like expressions
+ * so great care must be taken if ever it is attempted to change this
+ * condition */
 
 #define IMAGE_DIMENSIONS_OK(w, h) \
-   ( ((w) > 0) && ((h) > 0) && ((w) < X_MAX_DIM) && ((h) < X_MAX_DIM) )
+   ( ((w) > 0) && ((h) > 0) && ((w) <= X_MAX_DIM) && ((h) <= X_MAX_DIM) )
 
 #endif
