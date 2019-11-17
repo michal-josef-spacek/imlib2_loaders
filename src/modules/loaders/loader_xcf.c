@@ -59,29 +59,22 @@
 #include "loader_common.h"
 #include "loader_xcf.h"
 
-/* #define XCF_DBG */
-
-#define FREE(X) { free(X); X = NULL; }
-
-#ifdef XCF_DBG
-#define D(fmt, args...) \
-{ \
-  printf("Imlib2 XCF loader: "); \
-  printf(fmt, ## args); \
-}
+#define XCF_DBG 0
+#if XCF_DBG
+#define D(fmt...) printf("Imlib2 XCF loader: " fmt)
 #else
-#define D(fmt, args...)
+#define D(fmt...)
 #endif
 
 #define TILE_WIDTH   64
 #define TILE_HEIGHT  64
 
-/* --------------------------------------------------------------------------- typedefs ------------ */
+/* ------------ typedefs ------------ */
 
 typedef struct _Layer Layer;
 typedef struct _Tile Tile;
 
-/* ------------------------------------------------------------------------------ enums ------------ */
+/* ------------ enums ------------ */
 
 /* These are all the properties that a layer or channel can have.
    Only some of them are actually used. */
@@ -161,7 +154,7 @@ typedef enum {
    INDEXEDA_GIMAGE
 } GimpImageType;
 
-/* ---------------------------------------------------------------------------- structs ------------ */
+/* ------------ structs ------------ */
 
 /* Ok, this is what's left of Gimp's layer abstraction. I kicked out
    all the stuff that's unnecessary and added the necessary stuff
@@ -254,1049 +247,48 @@ struct _GimpImage {
    Layer              *floating_sel;
 } _image;
 
-/* ------------------------------------------------------------------------- prototypes ------------ */
-
-/* stuff that was adapted from xcf.c */
-
-static void         xcf_seek_pos(int pos);
-static int          xcf_read_int32(FILE * fp, DATA32 * data, int count);
-
-/*static int        xcf_read_float (FILE *fp, float *data, int count);*/
-static int          xcf_read_int8(FILE * fp, DATA8 * data, int count);
-static int          xcf_read_string(FILE * fp, char **data, int count);
-static char         xcf_load_prop(PropType * prop_type, DATA32 * prop_size);
-static void         xcf_load_image(void);
-static char         xcf_load_image_props(void);
-
-static Layer       *xcf_load_channel(void);
-static char         xcf_load_channel_props(Layer * layer);
-static Layer       *xcf_load_layer(void);
-static char         xcf_load_layer_props(Layer * layer);
-static char         xcf_load_hierarchy(Tile ** tiles,
-                                       int *num_rows, int *num_cols, int *bpp);
-static char         xcf_load_level(Tile ** tiles, int hierarchy_width,
-                                   int hierarchy_height, int bpp,
-                                   int *num_rows, int *num_cols);
-static char         xcf_load_tile(Tile * tile);
-static char         xcf_load_tile_rle(Tile * tile, int data_length);
-
-/* new stuff :) */
-
-static Tile        *allocate_tiles(int width, int height, int bpp,
-                                   int *num_rows, int *num_cols);
-static void         free_tiles(Tile * tiles, int num_tiles);
-static void         init_tile(Tile * tile, int width, int height, int bpp);
-static Layer       *new_layer(int width, int height, GimpImageType type,
-                              int opacity, LayerModeEffects mode);
-static void         free_layer(Layer * layer);
-static void         add_layer_to_image(Layer * layer);
-static void         read_tiles_into_data(Tile * tiles, int num_cols, int width,
-                                         int height, int bpp, DATA8 ** data,
-                                         int use_cmap);
-static void         apply_layer_mask(Layer * layer);
-static void         set_layer_opacity(Layer * layer);
-static void         flatten_image(void);
-
-static char         xcf_file_init(char *filename);
-static void         xcf_cleanup(void);
-static void         xcf_to_imlib(ImlibImage * im);
-
-/* ---------------------------------------------------------------------------- globals ------------ */
+/* ------------ globals ------------ */
 
 /* This makes using the Gimp sources easier */
 struct _GimpImage  *image = &_image;
 
-/* ------------------------------------------------------------------------------- code ------------ */
+/* ------------ prototypes ------------ */
+
+/* new stuff :) */
 
 static void
-xcf_seek_pos(int pos)
+free_tiles(Tile * tiles, int num_tiles)
 {
-   if (image->cp != pos)
-     {
-        image->cp = pos;
-        fseek(image->fp, image->cp, SEEK_SET);
-     }
-}
-
-static int
-xcf_read_int32(FILE * fp, DATA32 * data, int count)
-{
-   int                 total;
-
-   total = count;
-   if (count > 0)
-     {
-        xcf_read_int8(fp, (DATA8 *) data, count * 4);
-
-        while (count--)
-          {
-             *data = (DATA32) ntohl(*data);
-             data++;
-          }
-     }
-
-   return total * 4;
-}
-
-/*
-static int
-xcf_read_float (FILE     *fp,
-		float    *data,
-		int       count)
-{
-  return (xcf_read_int32(fp, (DATA32 *)((void *)data), count));
-}
-*/
-
-static int
-xcf_read_int8(FILE * fp, DATA8 * data, int count)
-{
-   int                 total;
-   int                 bytes;
-
-   total = count;
-   while (count > 0)
-     {
-        bytes = fread((char *)data, sizeof(char), count, fp);
-        if (bytes <= 0)         /* something bad happened */
-           break;
-        count -= bytes;
-        data += bytes;
-     }
-
-   return total;
-}
-
-static int
-xcf_read_string(FILE * fp, char **data, int count)
-{
-   DATA32              tmp;
-   int                 total;
    int                 i;
 
-   total = 0;
-   for (i = 0; i < count; i++)
+   D("%s: tiles=%p num=%d\n", __func__, tiles, num_tiles);
+
+   for (i = 0; i < num_tiles; i++)
      {
-        total += xcf_read_int32(fp, &tmp, 1);
-        if (tmp > 0)
+        if (tiles[i].data)
           {
-             data[i] = malloc(sizeof(DATA8) * tmp);
-             total += xcf_read_int8(fp, (DATA8 *) data[i], tmp);
-          }
-        else
-          {
-             data[i] = NULL;
+             free(tiles[i].data);
+             tiles[i].data = NULL;
           }
      }
-
-   return total;
-}
-
-static char
-xcf_load_prop(PropType * prop_type, DATA32 * prop_size)
-{
-   image->cp += xcf_read_int32(image->fp, (DATA32 *) prop_type, 1);
-   image->cp += xcf_read_int32(image->fp, (DATA32 *) prop_size, 1);
-   return 1;
-}
-
-static char
-xcf_load_image_props(void)
-{
-   PropType            prop_type;
-   DATA32              prop_size;
-
-   while (1)
-     {
-        if (!xcf_load_prop(&prop_type, &prop_size))
-           return 0;
-
-        switch (prop_type)
-          {
-          case PROP_END:
-             {
-                D("Finished reading image properties.\n");
-                return 1;
-             }
-          case PROP_COLORMAP:
-             {
-                if (image->file_version == 0)
-                  {
-                     unsigned int        i;
-
-                     fprintf(stderr,
-                             "XCF warning: version 0 of XCF file format\n"
-                             "did not save indexed colormaps correctly.\n"
-                             "Substituting grayscale map.\n");
-                     image->cp +=
-                        xcf_read_int32(image->fp, &image->num_cols, 1);
-                     image->cmap = malloc(sizeof(DATA8) * image->num_cols * 3);
-                     xcf_seek_pos(image->cp + image->num_cols);
-                     for (i = 0; i < image->num_cols; i++)
-                       {
-                          image->cmap[i * 3 + 0] = i;
-                          image->cmap[i * 3 + 1] = i;
-                          image->cmap[i * 3 + 2] = i;
-                       }
-                  }
-                else
-                  {
-                     D("Loading colormap.\n");
-                     image->cp +=
-                        xcf_read_int32(image->fp, &image->num_cols, 1);
-                     image->cmap = malloc(sizeof(DATA8) * image->num_cols * 3);
-                     image->cp +=
-                        xcf_read_int8(image->fp, (DATA8 *) image->cmap,
-                                      image->num_cols * 3);
-                  }
-             }
-             break;
-
-          case PROP_COMPRESSION:
-             {
-                DATA8               compression;
-
-                image->cp += xcf_read_int8(image->fp, &compression, 1);
-
-                if ((compression != COMPRESS_NONE) &&
-                    (compression != COMPRESS_RLE) &&
-                    (compression != COMPRESS_ZLIB) &&
-                    (compression != COMPRESS_FRACTAL))
-                  {
-                     fprintf(stderr, "unknown xcf compression type: %d\n",
-                             (int)compression);
-                     return 0;
-                  }
-
-                D("Image compression type: %i\n", compression);
-
-                image->compression = compression;
-             }
-             break;
-
-             /* I threw out all of the following: --cK */
-          case PROP_TATTOO:
-          case PROP_PARASITES:
-          case PROP_UNIT:
-          case PROP_PATHS:
-          case PROP_USER_UNIT:
-          case PROP_GUIDES:
-          case PROP_RESOLUTION:
-          default:
-             {
-                DATA8               buf[16];
-                int                 amount;
-
-                D("Skipping unexpected/unknown image property: %d\n",
-                  prop_type);
-
-                while (prop_size > 0)
-                  {
-                     amount = (16 < prop_size ? 16 : prop_size);
-                     image->cp += xcf_read_int8(image->fp, buf, amount);
-                     prop_size -= (16 < amount ? 16 : amount);
-                  }
-             }
-             break;
-          }
-     }
-
-   return 0;
+   free(tiles);
 }
 
 static void
-xcf_load_image(void)
+init_tile(Tile * tile, int width, int height, int bpp)
 {
-   Layer              *layer;
-   DATA32              saved_pos;
-   DATA32              offset;
-   int                 width;
-   int                 height;
-   int                 image_type;
-   int                 num_successful_elements = 0;
+   D("%s: tile=%p\n", __func__, tile);
 
-   /* read in the image width, height and type */
-   image->cp += xcf_read_int32(image->fp, (DATA32 *) & width, 1);
-   image->cp += xcf_read_int32(image->fp, (DATA32 *) & height, 1);
-   image->cp += xcf_read_int32(image->fp, (DATA32 *) & image_type, 1);
+   if (!tile)
+      return;
 
-   image->width = width;
-   image->height = height;
-   image->base_type = image_type;
-
-   D("Loading %ix%i image.\n", width, height);
-
-   /* read the image properties */
-   if (!xcf_load_image_props())
-      goto hard_error;
-
-   while (1)
+   tile->bpp = bpp;
+   tile->ewidth = width;
+   tile->eheight = height;
+   tile->data = malloc(sizeof(DATA8) * width * height * bpp);
+   if (!tile->data)
      {
-        /* read in the offset of the next layer */
-        image->cp += xcf_read_int32(image->fp, &offset, 1);
-
-        /* if the offset is 0 then we are at the end
-         *  of the layer list.
-         */
-        if (offset == 0)
-           break;
-
-        /* save the current position as it is where the
-         *  next layer offset is stored.
-         */
-        saved_pos = image->cp;
-
-        /* seek to the layer offset */
-        xcf_seek_pos(offset);
-
-        /* read in the layer */
-        layer = xcf_load_layer();
-        if (!layer)
-           goto error;
-
-        num_successful_elements++;
-
-        /* add the layer to the image if it's visible */
-        if (layer->visible)
-           add_layer_to_image(layer);
-        else
-           free_layer(layer);
-
-        /* restore the saved position so we'll be ready to
-         *  read the next offset.
-         */
-        xcf_seek_pos(saved_pos);
-
-     }
-
-   /* If we were a Gimp we would now load the user-defined channels here ... */
-
-   /* Flat-o-rama now :) */
-   flatten_image();
-
-   return;
-
- error:
-   if (num_successful_elements == 0)
-      goto hard_error;
-
-   fprintf(stderr,
-           "XCF: This file is corrupt!  I have loaded as much\nof it as I can, but it is incomplete.\n");
-
-   return;
-
- hard_error:
-   fprintf(stderr,
-           "XCF: This file is corrupt!  I could not even\nsalvage any partial image data from it.\n");
-   return;
-}
-
-static char
-xcf_load_layer_props(Layer * layer)
-{
-   PropType            prop_type;
-   DATA32              prop_size;
-
-   while (1)
-     {
-        if (!xcf_load_prop(&prop_type, &prop_size))
-           return 0;
-
-        switch (prop_type)
-          {
-          case PROP_END:
-             {
-                D("Finished reading layer properties.\n");
-                return 1;
-             }
-          case PROP_FLOATING_SELECTION:
-             D("Loading floating selection.\n");
-             image->floating_sel = layer;
-             image->cp +=
-                xcf_read_int32(image->fp,
-                               (DATA32 *) & image->floating_sel_offset, 1);
-             break;
-          case PROP_OPACITY:
-             image->cp +=
-                xcf_read_int32(image->fp, (DATA32 *) & layer->opacity, 1);
-             break;
-          case PROP_VISIBLE:
-             image->cp +=
-                xcf_read_int32(image->fp, (DATA32 *) & layer->visible, 1);
-             break;
-          case PROP_PRESERVE_TRANSPARENCY:
-             image->cp +=
-                xcf_read_int32(image->fp, (DATA32 *) & layer->preserve_trans,
-                               1);
-             break;
-          case PROP_OFFSETS:
-             image->cp +=
-                xcf_read_int32(image->fp, (DATA32 *) & layer->offset_x, 1);
-             image->cp +=
-                xcf_read_int32(image->fp, (DATA32 *) & layer->offset_y, 1);
-             break;
-          case PROP_MODE:
-             image->cp +=
-                xcf_read_int32(image->fp, (DATA32 *) & layer->mode, 1);
-             break;
-
-             /* I threw out all of the following: --cK */
-          case PROP_LINKED:
-          case PROP_ACTIVE_LAYER:
-          case PROP_TATTOO:
-          case PROP_APPLY_MASK:
-          case PROP_EDIT_MASK:
-          case PROP_SHOW_MASK:
-          case PROP_PARASITES:
-          default:
-             {
-                DATA8               buf[16];
-                int                 amount;
-
-                D("Skipping unexpected/unknown/unneeded channel property: %d\n",
-                  prop_type);
-
-                while (prop_size > 0)
-                  {
-                     amount = (16 < prop_size ? 16 : prop_size);
-                     image->cp += xcf_read_int8(image->fp, buf, amount);
-                     prop_size -= (16 < amount ? 16 : amount);
-                  }
-             }
-             break;
-          }
-     }
-
-   return 0;
-}
-
-static Layer       *
-xcf_load_layer(void)
-{
-   Layer              *layer;
-   Layer              *layer_mask;
-   DATA32              hierarchy_offset;
-   DATA32              layer_mask_offset;
-   int                 width;
-   int                 height;
-   int                 type;
-   char               *name;
-
-   D("Loading one layer ...\n");
-
-   /* read in the layer width, height and type */
-   image->cp += xcf_read_int32(image->fp, (DATA32 *) & width, 1);
-   image->cp += xcf_read_int32(image->fp, (DATA32 *) & height, 1);
-   image->cp += xcf_read_int32(image->fp, (DATA32 *) & type, 1);
-   image->cp += xcf_read_string(image->fp, &name, 1);
-
-   /* ugly, I know */
-   FREE(name);
-
-   /* create a new layer */
-   layer = new_layer(width, height, type, 255, NORMAL_MODE);
-   if (!layer)
-      return NULL;
-
-   /* read in the layer properties */
-   if (!xcf_load_layer_props(layer))
-      goto error;
-
-   D("Loading opacity: %i \n", layer->opacity);
-
-   if (!layer->visible)
-      return layer;
-
-   /* read the hierarchy and layer mask offsets */
-   image->cp += xcf_read_int32(image->fp, &hierarchy_offset, 1);
-   image->cp += xcf_read_int32(image->fp, &layer_mask_offset, 1);
-
-   /* read in the hierarchy */
-   xcf_seek_pos(hierarchy_offset);
-   if (!xcf_load_hierarchy
-       (&(layer->tiles), &(layer->num_rows), &(layer->num_cols), &(layer->bpp)))
-      goto error;
-
-   /* read in the layer mask */
-   if (layer_mask_offset != 0)
-     {
-        D("Loading layer mask.\n");
-        xcf_seek_pos(layer_mask_offset);
-
-        layer_mask = xcf_load_channel();
-        if (!layer_mask)
-           goto error;
-
-        /* set the offsets of the layer_mask */
-        layer_mask->offset_x = layer->offset_x;
-        layer_mask->offset_y = layer->offset_y;
-        layer->mask = layer_mask;
-     }
-
-   read_tiles_into_data(layer->tiles, layer->num_cols,
-                        layer->width, layer->height,
-                        layer->bpp, &(layer->data), 1);
-   free_tiles(layer->tiles, layer->num_rows * layer->num_cols);
-   layer->tiles = NULL;
-
-   set_layer_opacity(layer);
-
-   if (layer->mask)
-      apply_layer_mask(layer);
-
-   return layer;
-
- error:
-   free_layer(layer);
-   return NULL;
-}
-
-static void
-read_tiles_into_data(Tile * tiles, int num_cols, int width,
-                     int height, int bpp, DATA8 ** data_p, int use_cmap)
-{
-   int                 tile_x, tile_y, x, y, offset_x, offset_y;
-   DATA8              *data;
-   DATA8              *ptr;
-   DATA8              *ptr2;
-   Tile               *t;
-   int                 warned = 0;
-
-   if (tiles)
-     {
-        if (*data_p)
-           FREE(*data_p);
-
-        /* Always allocate the data as 4 bytes per pixel */
-        data = (*data_p) = malloc(sizeof(DATA32) * width * height);
-
-        ptr = data;
-
-        for (y = 0; y < height; y++)
-          {
-             for (x = 0; x < width; x++)
-               {
-                  tile_x = x / TILE_WIDTH;
-                  tile_y = y / TILE_HEIGHT;
-                  offset_x = x % TILE_WIDTH;
-                  offset_y = y % TILE_HEIGHT;
-
-                  t = &tiles[tile_y * num_cols + tile_x];
-                  ptr2 =
-                     &(t->data[offset_y * t->ewidth * bpp + offset_x * bpp]);
-
-                  switch (bpp)
-                    {
-                    case 1:
-                       {
-                          /* use colormap if the image has one */
-                          if (image->cmap && use_cmap)
-                            {
-                               R_VAL(ptr) = image->cmap[*(ptr2) * 3];
-                               G_VAL(ptr) = image->cmap[*(ptr2) * 3 + 1];
-                               B_VAL(ptr) = image->cmap[*(ptr2) * 3 + 2];
-                               A_VAL(ptr) = 255;
-                            }
-                          /* else use colors themselves */
-                          else
-                            {
-                               R_VAL(ptr) = *(ptr2);
-                               G_VAL(ptr) = *(ptr2);
-                               B_VAL(ptr) = *(ptr2);
-                               A_VAL(ptr) = 255;
-                            }
-                          break;
-                       }
-                    case 2:
-                       {
-                          /* use colormap if the image has one */
-                          if (image->cmap && use_cmap)
-                            {
-                               R_VAL(ptr) = image->cmap[*(ptr2) * 3];
-                               G_VAL(ptr) = image->cmap[*(ptr2) * 3 + 1];
-                               B_VAL(ptr) = image->cmap[*(ptr2) * 3 + 2];
-                               A_VAL(ptr) = *(ptr2 + 1);
-                            }
-                          /* else use colors themselves */
-                          else if (warned == 0)
-                            {
-                               warned++;
-                               fprintf(stderr,
-                                       "There's nothing to see here. 2 bpp without colormap not implemented yet.\n");
-                            }
-                          break;
-                       }
-                    case 3:
-                       {
-                          if (image->cmap)
-                            {
-                               if (warned == 0)
-                                 {
-                                    warned++;
-                                    fprintf(stderr,
-                                            "There's nothing to see here. 3 bpp with colormap not implemented yet.\n");
-                                 }
-                            }
-                          else
-                            {
-                               R_VAL(ptr) = *(ptr2);
-                               G_VAL(ptr) = *(ptr2 + 1);
-                               B_VAL(ptr) = *(ptr2 + 2);
-                               A_VAL(ptr) = 255;
-                            }
-                          break;
-                       }
-                    default:
-                       {
-                          R_VAL(ptr) = *(ptr2);
-                          G_VAL(ptr) = *(ptr2 + 1);
-                          B_VAL(ptr) = *(ptr2 + 2);
-                          A_VAL(ptr) = *(ptr2 + 3);
-                          break;
-                       }
-                    }
-                  ptr += 4;
-               }
-          }
-     }
-}
-
-static Layer       *
-xcf_load_channel(void)
-{
-   Layer              *layer;
-   DATA32              hierarchy_offset;
-   int                 width;
-   int                 height;
-   char               *name;
-
-   D("Loading channel ...\n");
-
-   /* read in the layer width, height and name */
-   image->cp += xcf_read_int32(image->fp, (DATA32 *) & width, 1);
-   image->cp += xcf_read_int32(image->fp, (DATA32 *) & height, 1);
-   image->cp += xcf_read_string(image->fp, &name, 1);
-
-   /* Yeah, still ugly :) */
-   FREE(name);
-
-   /* create a new channel */
-   layer = new_layer(width, height, GRAY, 255, NORMAL_MODE);
-   if (!layer)
-      return NULL;
-
-   /* read in the channel properties */
-   if (!xcf_load_channel_props(layer))
-      goto error;
-
-   /* read the hierarchy and layer mask offsets */
-   image->cp += xcf_read_int32(image->fp, &hierarchy_offset, 1);
-
-   /* read in the hierarchy */
-   xcf_seek_pos(hierarchy_offset);
-   if (!xcf_load_hierarchy
-       (&(layer->tiles), &(layer->num_rows), &(layer->num_cols), &(layer->bpp)))
-      goto error;
-
-   read_tiles_into_data(layer->tiles, layer->num_cols, layer->width,
-                        layer->height, layer->bpp, &(layer->data), 0);
-   free_tiles(layer->tiles, layer->num_rows * layer->num_cols);
-   layer->tiles = NULL;
-
-   D("Channel loaded successfully.\n");
-
-   return layer;
-
- error:
-   free_layer(layer);
-   return NULL;
-}
-
-static char
-xcf_load_channel_props(Layer * layer)
-{
-   PropType            prop_type;
-   DATA32              prop_size;
-
-   while (1)
-     {
-        if (!xcf_load_prop(&prop_type, &prop_size))
-           return 0;
-
-        switch (prop_type)
-          {
-          case PROP_END:
-             {
-                D("Finished loading channel props.\n");
-                return 1;
-             }
-          case PROP_OPACITY:
-             image->cp +=
-                xcf_read_int32(image->fp, (DATA32 *) & layer->opacity, 1);
-             break;
-          case PROP_VISIBLE:
-             image->cp +=
-                xcf_read_int32(image->fp, (DATA32 *) & layer->visible, 1);
-             break;
-          case PROP_ACTIVE_CHANNEL:
-          case PROP_SHOW_MASKED:
-          case PROP_SELECTION:
-          case PROP_COLOR:
-          case PROP_TATTOO:
-          case PROP_PARASITES:
-          default:
-             {
-                DATA8               buf[16];
-                int                 amount;
-
-                D("Skipping unexpected/unknown/unneeded channel property: %d\n",
-                  prop_type);
-
-                while (prop_size > 0)
-                  {
-                     amount = (16 < prop_size ? 16 : prop_size);
-                     image->cp += xcf_read_int8(image->fp, buf, amount);
-                     prop_size -= (16 < amount ? 16 : amount);
-                  }
-             }
-             break;
-          }
-     }
-
-   return 0;
-}
-
-static char
-xcf_load_hierarchy(Tile ** tiles, int *num_rows, int *num_cols, int *bpp)
-{
-   DATA32              saved_pos;
-   DATA32              offset;
-   DATA32              junk;
-   int                 width;
-   int                 height;
-
-   image->cp += xcf_read_int32(image->fp, (DATA32 *) & width, 1);
-   image->cp += xcf_read_int32(image->fp, (DATA32 *) & height, 1);
-   image->cp += xcf_read_int32(image->fp, (DATA32 *) bpp, 1);
-
-   image->cp += xcf_read_int32(image->fp, &offset, 1);  /* top level */
-
-   D("Loading hierarchy: width %i, height %i,  bpp %i\n", width, height, *bpp);
-
-   /* discard offsets for layers below first, if any.
-    */
-   do
-     {
-        image->cp += xcf_read_int32(image->fp, &junk, 1);
-     }
-   while (junk != 0);
-
-   /* save the current position as it is where the
-    *  next level offset is stored.
-    */
-   saved_pos = image->cp;
-
-   /* seek to the level offset */
-   xcf_seek_pos(offset);
-
-   /* read in the level */
-   if (!xcf_load_level(tiles, width, height, *bpp, num_rows, num_cols))
-      return 0;
-
-   /* restore the saved position so we'll be ready to
-    *  read the next offset.
-    */
-   xcf_seek_pos(saved_pos);
-
-   D("Loaded hierarchy successfully.\n");
-
-   return 1;
-}
-
-static char
-xcf_load_level(Tile ** tiles_p, int hierarchy_width, int hierarchy_height,
-               int bpp, int *num_rows, int *num_cols)
-{
-   DATA32              saved_pos;
-   DATA32              offset, offset2;
-   int                 ntiles;
-   int                 width;
-   int                 height;
-   int                 i;
-   int                 fail;
-
-   Tile               *tiles;
-   Tile               *current_tile;
-
-   image->cp += xcf_read_int32(image->fp, (DATA32 *) & width, 1);
-   image->cp += xcf_read_int32(image->fp, (DATA32 *) & height, 1);
-
-   if ((width != hierarchy_width) || (height != hierarchy_height))
-      return 0;
-
-   D("Loading level of size %ix%i.\n", width, height);
-   (*tiles_p) = allocate_tiles(width, height, bpp, num_rows, num_cols);
-   tiles = (*tiles_p);
-
-   image->cp += xcf_read_int32(image->fp, &offset, 1);
-   if (offset == 0)
-      return 1;
-
-   ntiles = (*num_rows) * (*num_cols);
-   for (i = 0; i < ntiles; i++)
-     {
-        current_tile = &(tiles[i]);
-        fail = 0;
-
-        if (offset == 0)
-          {
-             D("Not enough tiles found in level\n");
-             return 0;
-          }
-
-        /* save the current position as it is where the
-         *  next tile offset is stored.
-         */
-        saved_pos = image->cp;
-
-        /* read in the offset of the next tile so we can calculate the amount
-         * of data needed for this tile */
-        image->cp += xcf_read_int32(image->fp, &offset2, 1);
-
-        /* if the offset is 0 then we need to read in the maximum possible
-         * allowing for negative compression */
-        if (offset2 == 0)
-           offset2 = offset + TILE_WIDTH * TILE_WIDTH * 4 * 1.5;        /* 1.5 is probably more
-                                                                         * than we need to allow */
-
-        /* seek to the tile offset */
-        xcf_seek_pos(offset);
-
-        /* read in the current_tile */
-        switch (image->compression)
-          {
-          case COMPRESS_NONE:
-             if (!xcf_load_tile(current_tile))
-                fail = 1;
-             break;
-          case COMPRESS_RLE:
-             if (!xcf_load_tile_rle(current_tile, offset2 - offset))
-                fail = 1;
-             break;
-          case COMPRESS_ZLIB:
-             fprintf(stderr, "xcf: zlib compression unimplemented\n");
-             fail = 1;
-             break;
-          case COMPRESS_FRACTAL:
-             fprintf(stderr, "xcf: fractal compression unimplemented\n");
-             fail = 1;
-             break;
-          }
-
-        if (fail)
-          {
-             D("Couldn't load tiles.\n");
-             free_tiles(tiles, (*num_rows) * (*num_cols));
-             return 0;
-          }
-
-        /* restore the saved position so we'll be ready to
-         *  read the next offset.
-         */
-        xcf_seek_pos(saved_pos);
-
-        /* read in the offset of the next tile */
-        image->cp += xcf_read_int32(image->fp, &offset, 1);
-     }
-
-   if (offset != 0)
-     {
-        D("encountered garbage after reading level: %d\n", offset);
-        return 0;
-     }
-
-   D("Loaded level successfully.\n");
-
-   return 1;
-}
-
-static char
-xcf_load_tile(Tile * tile)
-{
-   image->cp +=
-      xcf_read_int8(image->fp, tile->data,
-                    tile->ewidth * tile->eheight * tile->bpp);
-   return 1;
-}
-
-static char
-xcf_load_tile_rle(Tile * tile, int data_length)
-{
-   DATA8              *data;
-   DATA8               val;
-   int                 size;
-   int                 count;
-   int                 length;
-   int                 bpp;
-   int                 i, j;
-   int                 nmemb_read_successfully;
-   DATA8              *xcfdata, *xcfodata, *xcfdatalimit;
-
-   data = tile->data;
-   bpp = tile->bpp;
-
-   /*printf ("Reading encrypted tile %ix%ix%i, data_length %i\n", tile->ewidth, tile->eheight, tile->bpp, data_length); */
-
-   xcfdata = xcfodata = malloc(sizeof(DATA8) * data_length);
-
-   /* we have to use fread instead of xcf_read_* because we may be
-    * reading past the end of the file here */
-   nmemb_read_successfully = fread((char *)xcfdata, sizeof(char),
-                                   data_length, image->fp);
-   image->cp += nmemb_read_successfully;
-
-   xcfdatalimit = &xcfodata[nmemb_read_successfully - 1];
-
-   for (i = 0; i < bpp; i++)
-     {
-        data = (tile->data) + i;
-        size = tile->ewidth * tile->eheight;
-        count = 0;
-
-        while (size > 0)
-          {
-             if (xcfdata > xcfdatalimit)
-               {
-                  goto bogus_rle;
-               }
-
-             val = *xcfdata++;
-
-             length = val;
-             if (length >= 128)
-               {
-                  length = 255 - (length - 1);
-                  if (length == 128)
-                    {
-                       if (xcfdata >= xcfdatalimit)
-                         {
-                            goto bogus_rle;
-                         }
-
-                       length = (*xcfdata << 8) + xcfdata[1];
-                       xcfdata += 2;
-                    }
-
-                  count += length;
-                  size -= length;
-
-                  if (size < 0)
-                    {
-                       goto bogus_rle;
-                    }
-
-                  if (&xcfdata[length - 1] > xcfdatalimit)
-                    {
-                       goto bogus_rle;
-                    }
-
-                  while (length-- > 0)
-                    {
-                       *data = *xcfdata++;
-                       data += bpp;
-                    }
-               }
-             else
-               {
-                  length += 1;
-                  if (length == 128)
-                    {
-                       if (xcfdata >= xcfdatalimit)
-                         {
-                            goto bogus_rle;
-                         }
-
-                       length = (*xcfdata << 8) + xcfdata[1];
-                       xcfdata += 2;
-                    }
-
-                  count += length;
-                  size -= length;
-
-                  if (size < 0)
-                    {
-                       goto bogus_rle;
-                    }
-
-                  if (xcfdata > xcfdatalimit)
-                    {
-                       goto bogus_rle;
-                    }
-
-                  val = *xcfdata++;
-
-                  for (j = 0; j < length; j++)
-                    {
-                       *data = val;
-                       data += bpp;
-                    }
-               }
-          }
-     }
-   FREE(xcfodata);
-   return 1;
-
- bogus_rle:
-   fprintf(stderr,
-           "WHOOOOOP -- bogus rle? Highly unlikely, blame cK for this one :) \n");
-   if (xcfodata)
-      FREE(xcfodata);
-   return 0;
-}
-
-static Layer       *
-new_layer(int width, int height, GimpImageType type, int opacity,
-          LayerModeEffects mode)
-{
-   Layer              *layer;
-
-   layer = malloc(sizeof(Layer));
-   if (!layer)
-     {
-        D("Couldn't allocate layer.\n");
-        return NULL;
-     }
-
-   bzero(layer, sizeof(Layer));
-
-   layer->width = width;
-   layer->height = height;
-   layer->type = type;
-   layer->opacity = opacity;
-   layer->mode = mode;
-
-   layer->tiles = NULL;
-   layer->next = NULL;
-   layer->mask = NULL;
-
-   return layer;
-}
-
-static void
-free_layer(Layer * layer)
-{
-   if (layer)
-     {
-        if (layer->tiles)
-           free_tiles(layer->tiles, layer->num_rows * layer->num_cols);
-
-        if (layer->mask)
-           free_layer(layer->mask);
-
-        if (layer->data)
-           FREE(layer->data);
-
-        FREE(layer);
+        D("Couldn't allocate tile.\n");
      }
 }
 
@@ -1310,12 +302,14 @@ allocate_tiles(int width, int height, int bpp, int *num_rows, int *num_cols)
    (*num_rows) = (height + TILE_HEIGHT - 1) / TILE_HEIGHT;
    (*num_cols) = (width + TILE_WIDTH - 1) / TILE_WIDTH;
 
-   tiles = malloc(sizeof(Tile) * (*num_rows) * (*num_cols));
+   tiles = calloc((*num_rows) * (*num_cols), sizeof(Tile));
    if (!tiles)
      {
         D("Couldn't allocate tiles.\n");
         return NULL;
      }
+
+   D("%s: tiles=%p %dx%d\n", __func__, tiles, *num_cols, *num_rows);
 
    right_tile = width - (((*num_cols) - 1) * TILE_WIDTH);
    bottom_tile = height - (((*num_rows) - 1) * TILE_HEIGHT);
@@ -1335,53 +329,74 @@ allocate_tiles(int width, int height, int bpp, int *num_rows, int *num_cols)
    return tiles;
 }
 
-static void
-init_tile(Tile * tile, int width, int height, int bpp)
+static Layer       *
+new_layer(int width, int height, GimpImageType type, int opacity,
+          LayerModeEffects mode)
 {
-   if (tile)
+   Layer              *layer;
+
+   layer = calloc(1, sizeof(Layer));
+   if (!layer)
      {
-        tile->bpp = bpp;
-        tile->ewidth = width;
-        tile->eheight = height;
-        tile->data = malloc(sizeof(DATA8) * width * height * bpp);
-        if (!tile->data)
-          {
-             D("Couldn't allocate tile.\n");
-          }
+        D("Couldn't allocate layer.\n");
+        return NULL;
      }
+
+   D("%s: layer=%p\n", __func__, layer);
+
+   layer->width = width;
+   layer->height = height;
+   layer->type = type;
+   layer->opacity = opacity;
+   layer->mode = mode;
+
+   return layer;
 }
 
 static void
-free_tiles(Tile * tiles, int num_tiles)
+free_layer(Layer * layer)
 {
-   int                 i;
+   D("%s: layer=%p\n", __func__, layer);
 
-   for (i = 0; i < num_tiles; i++)
+   if (!layer)
+      return;
+
+   if (layer->tiles)
      {
-        if (tiles[i].data)
-           FREE(tiles[i].data);
+        free_tiles(layer->tiles, layer->num_rows * layer->num_cols);
+        layer->tiles = NULL;
      }
-   FREE(tiles);
+
+   if (layer->mask)
+     {
+        free_layer(layer->mask);
+        layer->mask = NULL;
+     }
+
+   if (layer->data)
+      free(layer->data);
+
+   free(layer);
 }
 
 static void
 add_layer_to_image(Layer * layer)
 {
-   if (layer)
+   if (!layer)
+      return;
+
+   if (image->last_layer)
      {
-        if (image->last_layer)
-          {
-             image->last_layer->next = layer;
-             layer->prev = image->last_layer;
-          }
-        else
-          {
-             image->layers = layer;
-             layer->prev = NULL;
-          }
-        layer->next = NULL;
-        image->last_layer = layer;
+        image->last_layer->next = layer;
+        layer->prev = image->last_layer;
      }
+   else
+     {
+        image->layers = layer;
+        layer->prev = NULL;
+     }
+   layer->next = NULL;
+   image->last_layer = layer;
 }
 
 static void
@@ -1390,15 +405,15 @@ set_layer_opacity(Layer * layer)
    int                 i;
    DATA8              *ptr;
 
-   if (layer)
+   if (!layer)
+      return;
+
+   if (layer->opacity != 255)
      {
-        if (layer->opacity != 255)
+        for (i = 0, ptr = layer->data; i < layer->width * layer->height;
+             i++, ptr += 4)
           {
-             for (i = 0, ptr = layer->data; i < layer->width * layer->height;
-                  i++, ptr += 4)
-               {
-                  *(ptr + 3) = (*(ptr + 3) * layer->opacity) >> 8;
-               }
+             *(ptr + 3) = (*(ptr + 3) * layer->opacity) >> 8;
           }
      }
 }
@@ -1412,24 +427,24 @@ apply_layer_mask(Layer * layer)
 
    D("Applying layer mask.\n");
 
-   if (layer)
+   if (!layer)
+      return;
+
+   if (!layer->mask)
+      return;
+
+   ptr1 = layer->data;
+   ptr2 = layer->mask->data;
+
+   for (i = 0; i < layer->width * layer->height; i++)
      {
-        if (layer->mask)
-          {
-             ptr1 = layer->data;
-             ptr2 = layer->mask->data;
+        tmp = (*(ptr1 + 3) * *(ptr2)) / 256;
+        if (tmp > 255)
+           tmp = 255;
 
-             for (i = 0; i < layer->width * layer->height; i++)
-               {
-                  tmp = (*(ptr1 + 3) * *(ptr2)) / 256;
-                  if (tmp > 255)
-                     tmp = 255;
-
-                  *(ptr1 + 3) = (DATA8) tmp;
-                  ptr1 += 4;
-                  ptr2 += 4;
-               }
-          }
+        *(ptr1 + 3) = (DATA8) tmp;
+        ptr1 += 4;
+        ptr2 += 4;
      }
 }
 
@@ -1550,6 +565,7 @@ flatten_image(void)
                case ERASE_MODE:
                case ANTI_ERASE_MODE:
                   D("EEEEEK -- this mode shouldn't be here\n");
+                  /* FALLTHROUGH */
 
                case NORMAL_MODE:
                   D("NORMAL\n");
@@ -1561,6 +577,7 @@ flatten_image(void)
 
                default:
                   D("Unknown layer mode: %i. Skipping.\n", l->mode);
+                  break;
                }
           }
 
@@ -1577,7 +594,917 @@ flatten_image(void)
    image->last_layer = NULL;
 }
 
-static char
+/* ------------ code ------------ */
+
+/* stuff that was adapted from xcf.c */
+
+static void
+xcf_seek_pos(int pos)
+{
+   if (image->cp != pos)
+     {
+        image->cp = pos;
+        fseek(image->fp, image->cp, SEEK_SET);
+     }
+}
+
+static int
+xcf_read_int8(FILE * fp, DATA8 * data, int count)
+{
+   int                 total;
+   int                 bytes;
+
+   total = count;
+   while (count > 0)
+     {
+        bytes = fread(data, 1, count, fp);
+        if (bytes <= 0)         /* something bad happened */
+           break;
+        count -= bytes;
+        data += bytes;
+     }
+
+   return total;
+}
+
+static int
+xcf_read_int32(FILE * fp, DATA32 * data, int count)
+{
+   int                 total;
+
+   total = count;
+   if (count > 0)
+     {
+        xcf_read_int8(fp, (DATA8 *) data, count * 4);
+
+        while (count--)
+          {
+             *data = (DATA32) ntohl(*data);
+             data++;
+          }
+     }
+
+   return total * 4;
+}
+
+static int
+xcf_read_string(FILE * fp, char **data, int count)
+{
+   DATA32              tmp;
+   int                 total;
+   int                 i;
+
+   total = 0;
+   for (i = 0; i < count; i++)
+     {
+        total += xcf_read_int32(fp, &tmp, 1);
+        if (tmp > 0)
+          {
+             data[i] = malloc(sizeof(DATA8) * tmp);
+             total += xcf_read_int8(fp, (DATA8 *) data[i], tmp);
+          }
+        else
+          {
+             data[i] = NULL;
+          }
+     }
+
+   return total;
+}
+
+static int
+xcf_load_prop(PropType * prop_type, DATA32 * prop_size)
+{
+   image->cp += xcf_read_int32(image->fp, (DATA32 *) prop_type, 1);
+   image->cp += xcf_read_int32(image->fp, (DATA32 *) prop_size, 1);
+   return 1;
+}
+
+static int
+xcf_load_image_props(void)
+{
+   PropType            prop_type;
+   DATA32              prop_size;
+   DATA8               compression;
+
+   while (1)
+     {
+        if (!xcf_load_prop(&prop_type, &prop_size))
+           return 0;
+
+        switch (prop_type)
+          {
+          case PROP_END:
+             D("Finished reading image properties.\n");
+             return 1;
+
+          case PROP_COLORMAP:
+             if (image->file_version == 0)
+               {
+                  unsigned int        i;
+
+                  fprintf(stderr,
+                          "XCF warning: version 0 of XCF file format\n"
+                          "did not save indexed colormaps correctly.\n"
+                          "Substituting grayscale map.\n");
+                  image->cp += xcf_read_int32(image->fp, &image->num_cols, 1);
+                  image->cmap = malloc(sizeof(DATA8) * image->num_cols * 3);
+                  xcf_seek_pos(image->cp + image->num_cols);
+                  for (i = 0; i < image->num_cols; i++)
+                    {
+                       image->cmap[i * 3 + 0] = i;
+                       image->cmap[i * 3 + 1] = i;
+                       image->cmap[i * 3 + 2] = i;
+                    }
+               }
+             else
+               {
+                  D("Loading colormap.\n");
+                  image->cp += xcf_read_int32(image->fp, &image->num_cols, 1);
+                  image->cmap = malloc(sizeof(DATA8) * image->num_cols * 3);
+                  image->cp +=
+                     xcf_read_int8(image->fp, (DATA8 *) image->cmap,
+                                   image->num_cols * 3);
+               }
+             break;
+
+          case PROP_COMPRESSION:
+             image->cp += xcf_read_int8(image->fp, &compression, 1);
+
+             if ((compression != COMPRESS_NONE) &&
+                 (compression != COMPRESS_RLE) &&
+                 (compression != COMPRESS_ZLIB) &&
+                 (compression != COMPRESS_FRACTAL))
+               {
+                  fprintf(stderr, "unknown xcf compression type: %d\n",
+                          (int)compression);
+                  return 0;
+               }
+
+             D("Image compression type: %i\n", compression);
+
+             image->compression = compression;
+             break;
+
+             /* I threw out all of the following: --cK */
+          case PROP_TATTOO:
+          case PROP_PARASITES:
+          case PROP_UNIT:
+          case PROP_PATHS:
+          case PROP_USER_UNIT:
+          case PROP_GUIDES:
+          case PROP_RESOLUTION:
+          default:
+             D("Skipping unexpected/unknown image property: %d\n", prop_type);
+
+             while (prop_size > 0)
+               {
+                  DATA8               buf[16];
+                  int                 amount;
+
+                  amount = (16 < prop_size ? 16 : prop_size);
+                  image->cp += xcf_read_int8(image->fp, buf, amount);
+                  prop_size -= (16 < amount ? 16 : amount);
+               }
+             break;
+          }
+     }
+
+   return 0;
+}
+
+static int
+xcf_load_layer_props(Layer * layer)
+{
+   PropType            prop_type;
+   DATA32              prop_size;
+
+   while (1)
+     {
+        if (!xcf_load_prop(&prop_type, &prop_size))
+           return 0;
+
+        switch (prop_type)
+          {
+          case PROP_END:
+             D("Finished reading layer properties.\n");
+             return 1;
+          case PROP_FLOATING_SELECTION:
+             D("Loading floating selection.\n");
+             image->floating_sel = layer;
+             image->cp +=
+                xcf_read_int32(image->fp,
+                               (DATA32 *) & image->floating_sel_offset, 1);
+             break;
+          case PROP_OPACITY:
+             image->cp +=
+                xcf_read_int32(image->fp, (DATA32 *) & layer->opacity, 1);
+             break;
+          case PROP_VISIBLE:
+             image->cp +=
+                xcf_read_int32(image->fp, (DATA32 *) & layer->visible, 1);
+             break;
+          case PROP_PRESERVE_TRANSPARENCY:
+             image->cp +=
+                xcf_read_int32(image->fp, (DATA32 *) & layer->preserve_trans,
+                               1);
+             break;
+          case PROP_OFFSETS:
+             image->cp +=
+                xcf_read_int32(image->fp, (DATA32 *) & layer->offset_x, 1);
+             image->cp +=
+                xcf_read_int32(image->fp, (DATA32 *) & layer->offset_y, 1);
+             break;
+          case PROP_MODE:
+             image->cp +=
+                xcf_read_int32(image->fp, (DATA32 *) & layer->mode, 1);
+             break;
+
+             /* I threw out all of the following: --cK */
+          case PROP_LINKED:
+          case PROP_ACTIVE_LAYER:
+          case PROP_TATTOO:
+          case PROP_APPLY_MASK:
+          case PROP_EDIT_MASK:
+          case PROP_SHOW_MASK:
+          case PROP_PARASITES:
+          default:
+             D("Skipping unexpected/unknown/unneeded channel property: %d\n",
+               prop_type);
+
+             while (prop_size > 0)
+               {
+                  DATA8               buf[16];
+                  int                 amount;
+
+                  amount = (16 < prop_size ? 16 : prop_size);
+                  image->cp += xcf_read_int8(image->fp, buf, amount);
+                  prop_size -= (16 < amount ? 16 : amount);
+               }
+             break;
+          }
+     }
+
+   return 0;
+}
+
+static void
+read_tiles_into_data(Tile * tiles, int num_cols, int width,
+                     int height, int bpp, DATA8 ** data_p, int use_cmap)
+{
+   int                 tile_x, tile_y, x, y, offset_x, offset_y;
+   DATA8              *data;
+   DATA8              *ptr;
+   DATA8              *ptr2;
+   Tile               *t;
+   int                 warned = 0;
+
+   if (!tiles)
+      return;
+
+   if (*data_p)
+      free(*data_p);
+
+   /* Always allocate the data as 4 bytes per pixel */
+   data = (*data_p) = malloc(sizeof(DATA32) * width * height);
+
+   ptr = data;
+
+   for (y = 0; y < height; y++)
+     {
+        for (x = 0; x < width; x++)
+          {
+             tile_x = x / TILE_WIDTH;
+             tile_y = y / TILE_HEIGHT;
+             offset_x = x % TILE_WIDTH;
+             offset_y = y % TILE_HEIGHT;
+
+             t = &tiles[tile_y * num_cols + tile_x];
+             ptr2 = &(t->data[offset_y * t->ewidth * bpp + offset_x * bpp]);
+
+             switch (bpp)
+               {
+               case 1:
+                  /* use colormap if the image has one */
+                  if (image->cmap && use_cmap)
+                    {
+                       R_VAL(ptr) = image->cmap[*(ptr2) * 3];
+                       G_VAL(ptr) = image->cmap[*(ptr2) * 3 + 1];
+                       B_VAL(ptr) = image->cmap[*(ptr2) * 3 + 2];
+                       A_VAL(ptr) = 255;
+                    }
+                  /* else use colors themselves */
+                  else
+                    {
+                       R_VAL(ptr) = *(ptr2);
+                       G_VAL(ptr) = *(ptr2);
+                       B_VAL(ptr) = *(ptr2);
+                       A_VAL(ptr) = 255;
+                    }
+                  break;
+               case 2:
+                  /* use colormap if the image has one */
+                  if (image->cmap && use_cmap)
+                    {
+                       R_VAL(ptr) = image->cmap[*(ptr2) * 3];
+                       G_VAL(ptr) = image->cmap[*(ptr2) * 3 + 1];
+                       B_VAL(ptr) = image->cmap[*(ptr2) * 3 + 2];
+                       A_VAL(ptr) = *(ptr2 + 1);
+                    }
+                  /* else use colors themselves */
+                  else if (warned == 0)
+                    {
+                       warned++;
+                       fprintf(stderr,
+                               "There's nothing to see here. 2 bpp without colormap not implemented yet.\n");
+                    }
+                  break;
+               case 3:
+                  if (image->cmap)
+                    {
+                       if (warned == 0)
+                         {
+                            warned++;
+                            fprintf(stderr,
+                                    "There's nothing to see here. 3 bpp with colormap not implemented yet.\n");
+                         }
+                    }
+                  else
+                    {
+                       R_VAL(ptr) = *(ptr2);
+                       G_VAL(ptr) = *(ptr2 + 1);
+                       B_VAL(ptr) = *(ptr2 + 2);
+                       A_VAL(ptr) = 255;
+                    }
+                  break;
+               default:
+                  R_VAL(ptr) = *(ptr2);
+                  G_VAL(ptr) = *(ptr2 + 1);
+                  B_VAL(ptr) = *(ptr2 + 2);
+                  A_VAL(ptr) = *(ptr2 + 3);
+                  break;
+               }
+             ptr += 4;
+          }
+     }
+}
+
+static int
+xcf_load_tile(Tile * tile)
+{
+   image->cp +=
+      xcf_read_int8(image->fp, tile->data,
+                    tile->ewidth * tile->eheight * tile->bpp);
+   return 1;
+}
+
+static int
+xcf_load_tile_rle(Tile * tile, int data_length)
+{
+   DATA8              *data;
+   DATA8               val;
+   int                 size;
+   int                 count;
+   int                 length;
+   int                 bpp;
+   int                 i, j;
+   int                 nmemb_read_successfully;
+   DATA8              *xcfdata, *xcfodata, *xcfdatalimit;
+
+   data = tile->data;
+   bpp = tile->bpp;
+
+   /*printf ("Reading encrypted tile %ix%ix%i, data_length %i\n", tile->ewidth, tile->eheight, tile->bpp, data_length); */
+
+   xcfdata = xcfodata = malloc(sizeof(DATA8) * data_length);
+
+   /* we have to use fread instead of xcf_read_* because we may be
+    * reading past the end of the file here */
+   nmemb_read_successfully = fread(xcfdata, 1, data_length, image->fp);
+   image->cp += nmemb_read_successfully;
+
+   xcfdatalimit = &xcfodata[nmemb_read_successfully - 1];
+
+   for (i = 0; i < bpp; i++)
+     {
+        data = (tile->data) + i;
+        size = tile->ewidth * tile->eheight;
+        count = 0;
+
+        while (size > 0)
+          {
+             if (xcfdata > xcfdatalimit)
+               {
+                  goto bogus_rle;
+               }
+
+             val = *xcfdata++;
+
+             length = val;
+             if (length >= 128)
+               {
+                  length = 255 - (length - 1);
+                  if (length == 128)
+                    {
+                       if (xcfdata >= xcfdatalimit)
+                         {
+                            goto bogus_rle;
+                         }
+
+                       length = (*xcfdata << 8) + xcfdata[1];
+                       xcfdata += 2;
+                    }
+
+                  count += length;
+                  size -= length;
+
+                  if (size < 0)
+                    {
+                       goto bogus_rle;
+                    }
+
+                  if (&xcfdata[length - 1] > xcfdatalimit)
+                    {
+                       goto bogus_rle;
+                    }
+
+                  while (length-- > 0)
+                    {
+                       *data = *xcfdata++;
+                       data += bpp;
+                    }
+               }
+             else
+               {
+                  length += 1;
+                  if (length == 128)
+                    {
+                       if (xcfdata >= xcfdatalimit)
+                         {
+                            goto bogus_rle;
+                         }
+
+                       length = (*xcfdata << 8) + xcfdata[1];
+                       xcfdata += 2;
+                    }
+
+                  count += length;
+                  size -= length;
+
+                  if (size < 0)
+                    {
+                       goto bogus_rle;
+                    }
+
+                  if (xcfdata > xcfdatalimit)
+                    {
+                       goto bogus_rle;
+                    }
+
+                  val = *xcfdata++;
+
+                  for (j = 0; j < length; j++)
+                    {
+                       *data = val;
+                       data += bpp;
+                    }
+               }
+          }
+     }
+   free(xcfodata);
+   return 1;
+
+ bogus_rle:
+   fprintf(stderr,
+           "WHOOOOOP -- bogus rle? Highly unlikely, blame cK for this one :) \n");
+   free(xcfodata);
+   return 0;
+}
+
+static int
+xcf_load_level(Tile ** tiles_p, int hierarchy_width, int hierarchy_height,
+               int bpp, int *num_rows, int *num_cols)
+{
+   DATA32              saved_pos;
+   DATA32              offset, offset2;
+   int                 ntiles;
+   int                 width;
+   int                 height;
+   int                 i;
+   int                 fail;
+
+   Tile               *tiles;
+   Tile               *current_tile;
+
+   image->cp += xcf_read_int32(image->fp, (DATA32 *) & width, 1);
+   image->cp += xcf_read_int32(image->fp, (DATA32 *) & height, 1);
+
+   if ((width != hierarchy_width) || (height != hierarchy_height))
+      return 0;
+
+   D("Loading level of size %ix%i.\n", width, height);
+   (*tiles_p) = allocate_tiles(width, height, bpp, num_rows, num_cols);
+   tiles = (*tiles_p);
+
+   image->cp += xcf_read_int32(image->fp, &offset, 1);
+   if (offset == 0)
+      return 1;
+
+   ntiles = (*num_rows) * (*num_cols);
+   for (i = 0; i < ntiles; i++)
+     {
+        current_tile = &(tiles[i]);
+        fail = 0;
+
+        if (offset == 0)
+          {
+             D("Not enough tiles found in level\n");
+             return 0;
+          }
+
+        /* save the current position as it is where the
+         *  next tile offset is stored.
+         */
+        saved_pos = image->cp;
+
+        /* read in the offset of the next tile so we can calculate the amount
+         * of data needed for this tile */
+        image->cp += xcf_read_int32(image->fp, &offset2, 1);
+
+        /* if the offset is 0 then we need to read in the maximum possible
+         * allowing for negative compression */
+        if (offset2 == 0)
+           offset2 = offset + TILE_WIDTH * TILE_WIDTH * 4 * 1.5;        /* 1.5 is probably more
+                                                                         * than we need to allow */
+
+        /* seek to the tile offset */
+        xcf_seek_pos(offset);
+
+        /* read in the current_tile */
+        switch (image->compression)
+          {
+          case COMPRESS_NONE:
+             if (!xcf_load_tile(current_tile))
+                fail = 1;
+             break;
+          case COMPRESS_RLE:
+             if (!xcf_load_tile_rle(current_tile, offset2 - offset))
+                fail = 1;
+             break;
+          case COMPRESS_ZLIB:
+             fprintf(stderr, "xcf: zlib compression unimplemented\n");
+             fail = 1;
+             break;
+          case COMPRESS_FRACTAL:
+             fprintf(stderr, "xcf: fractal compression unimplemented\n");
+             fail = 1;
+             break;
+          }
+
+        if (fail)
+          {
+             D("Couldn't load tiles.\n");
+             free_tiles(tiles, (*num_rows) * (*num_cols));
+             return 0;
+          }
+
+        /* restore the saved position so we'll be ready to
+         *  read the next offset.
+         */
+        xcf_seek_pos(saved_pos);
+
+        /* read in the offset of the next tile */
+        image->cp += xcf_read_int32(image->fp, &offset, 1);
+     }
+
+   if (offset != 0)
+     {
+        D("encountered garbage after reading level: %d\n", offset);
+        return 0;
+     }
+
+   D("Loaded level successfully.\n");
+
+   return 1;
+}
+
+static int
+xcf_load_hierarchy(Tile ** tiles, int *num_rows, int *num_cols, int *bpp)
+{
+   DATA32              saved_pos;
+   DATA32              offset;
+   DATA32              junk;
+   int                 width;
+   int                 height;
+
+   image->cp += xcf_read_int32(image->fp, (DATA32 *) & width, 1);
+   image->cp += xcf_read_int32(image->fp, (DATA32 *) & height, 1);
+   image->cp += xcf_read_int32(image->fp, (DATA32 *) bpp, 1);
+
+   image->cp += xcf_read_int32(image->fp, &offset, 1);  /* top level */
+
+   D("Loading hierarchy: width %i, height %i,  bpp %i\n", width, height, *bpp);
+
+   /* discard offsets for layers below first, if any.
+    */
+   do
+     {
+        image->cp += xcf_read_int32(image->fp, &junk, 1);
+     }
+   while (junk != 0);
+
+   /* save the current position as it is where the
+    *  next level offset is stored.
+    */
+   saved_pos = image->cp;
+
+   /* seek to the level offset */
+   xcf_seek_pos(offset);
+
+   /* read in the level */
+   if (!xcf_load_level(tiles, width, height, *bpp, num_rows, num_cols))
+      return 0;
+
+   /* restore the saved position so we'll be ready to
+    *  read the next offset.
+    */
+   xcf_seek_pos(saved_pos);
+
+   D("Loaded hierarchy successfully.\n");
+
+   return 1;
+}
+
+static int
+xcf_load_channel_props(Layer * layer)
+{
+   PropType            prop_type;
+   DATA32              prop_size;
+
+   while (1)
+     {
+        if (!xcf_load_prop(&prop_type, &prop_size))
+           return 0;
+
+        switch (prop_type)
+          {
+          case PROP_END:
+             D("Finished loading channel props.\n");
+             return 1;
+          case PROP_OPACITY:
+             image->cp +=
+                xcf_read_int32(image->fp, (DATA32 *) & layer->opacity, 1);
+             break;
+          case PROP_VISIBLE:
+             image->cp +=
+                xcf_read_int32(image->fp, (DATA32 *) & layer->visible, 1);
+             break;
+          case PROP_ACTIVE_CHANNEL:
+          case PROP_SHOW_MASKED:
+          case PROP_SELECTION:
+          case PROP_COLOR:
+          case PROP_TATTOO:
+          case PROP_PARASITES:
+          default:
+             D("Skipping unexpected/unknown/unneeded channel property: %d\n",
+               prop_type);
+
+             while (prop_size > 0)
+               {
+                  DATA8               buf[16];
+                  int                 amount;
+
+                  amount = (16 < prop_size ? 16 : prop_size);
+                  image->cp += xcf_read_int8(image->fp, buf, amount);
+                  prop_size -= (16 < amount ? 16 : amount);
+               }
+             break;
+          }
+     }
+
+   return 0;
+}
+
+static Layer       *
+xcf_load_channel(void)
+{
+   Layer              *layer;
+   DATA32              hierarchy_offset;
+   int                 width;
+   int                 height;
+   char               *name;
+
+   D("Loading channel ...\n");
+
+   /* read in the layer width, height and name */
+   image->cp += xcf_read_int32(image->fp, (DATA32 *) & width, 1);
+   image->cp += xcf_read_int32(image->fp, (DATA32 *) & height, 1);
+   image->cp += xcf_read_string(image->fp, &name, 1);
+
+   /* Yeah, still ugly :) */
+   free(name);
+
+   /* create a new channel */
+   layer = new_layer(width, height, GRAY, 255, NORMAL_MODE);
+   if (!layer)
+      return NULL;
+
+   /* read in the channel properties */
+   if (!xcf_load_channel_props(layer))
+      goto error;
+
+   /* read the hierarchy and layer mask offsets */
+   image->cp += xcf_read_int32(image->fp, &hierarchy_offset, 1);
+
+   /* read in the hierarchy */
+   xcf_seek_pos(hierarchy_offset);
+   if (!xcf_load_hierarchy
+       (&(layer->tiles), &(layer->num_rows), &(layer->num_cols), &(layer->bpp)))
+      goto error;
+
+   read_tiles_into_data(layer->tiles, layer->num_cols, layer->width,
+                        layer->height, layer->bpp, &(layer->data), 0);
+   free_tiles(layer->tiles, layer->num_rows * layer->num_cols);
+   layer->tiles = NULL;
+
+   D("Channel loaded successfully.\n");
+
+   return layer;
+
+ error:
+   free_layer(layer);
+   return NULL;
+}
+
+static Layer       *
+xcf_load_layer(void)
+{
+   Layer              *layer;
+   Layer              *layer_mask;
+   DATA32              hierarchy_offset;
+   DATA32              layer_mask_offset;
+   int                 width;
+   int                 height;
+   int                 type;
+   char               *name;
+
+   D("Loading one layer ...\n");
+
+   /* read in the layer width, height and type */
+   image->cp += xcf_read_int32(image->fp, (DATA32 *) & width, 1);
+   image->cp += xcf_read_int32(image->fp, (DATA32 *) & height, 1);
+   image->cp += xcf_read_int32(image->fp, (DATA32 *) & type, 1);
+   image->cp += xcf_read_string(image->fp, &name, 1);
+
+   /* ugly, I know */
+   free(name);
+
+   /* create a new layer */
+   layer = new_layer(width, height, type, 255, NORMAL_MODE);
+   if (!layer)
+      return NULL;
+
+   /* read in the layer properties */
+   if (!xcf_load_layer_props(layer))
+      goto error;
+
+   D("Loading opacity: %i \n", layer->opacity);
+
+   if (!layer->visible)
+      return layer;
+
+   /* read the hierarchy and layer mask offsets */
+   image->cp += xcf_read_int32(image->fp, &hierarchy_offset, 1);
+   image->cp += xcf_read_int32(image->fp, &layer_mask_offset, 1);
+
+   /* read in the hierarchy */
+   xcf_seek_pos(hierarchy_offset);
+   if (!xcf_load_hierarchy
+       (&(layer->tiles), &(layer->num_rows), &(layer->num_cols), &(layer->bpp)))
+      goto error;
+
+   /* read in the layer mask */
+   if (layer_mask_offset != 0)
+     {
+        D("Loading layer mask.\n");
+        xcf_seek_pos(layer_mask_offset);
+
+        layer_mask = xcf_load_channel();
+        if (!layer_mask)
+           goto error;
+
+        /* set the offsets of the layer_mask */
+        layer_mask->offset_x = layer->offset_x;
+        layer_mask->offset_y = layer->offset_y;
+        layer->mask = layer_mask;
+     }
+
+   read_tiles_into_data(layer->tiles, layer->num_cols,
+                        layer->width, layer->height,
+                        layer->bpp, &(layer->data), 1);
+   free_tiles(layer->tiles, layer->num_rows * layer->num_cols);
+   layer->tiles = NULL;
+
+   set_layer_opacity(layer);
+
+   if (layer->mask)
+      apply_layer_mask(layer);
+
+   return layer;
+
+ error:
+   free_layer(layer);
+   return NULL;
+}
+
+static void
+xcf_load_image(void)
+{
+   Layer              *layer;
+   DATA32              saved_pos;
+   DATA32              offset;
+   int                 width;
+   int                 height;
+   int                 image_type;
+   int                 num_successful_elements = 0;
+
+   /* read in the image width, height and type */
+   image->cp += xcf_read_int32(image->fp, (DATA32 *) & width, 1);
+   image->cp += xcf_read_int32(image->fp, (DATA32 *) & height, 1);
+   image->cp += xcf_read_int32(image->fp, (DATA32 *) & image_type, 1);
+
+   image->width = width;
+   image->height = height;
+   image->base_type = image_type;
+
+   D("Loading %ix%i image.\n", width, height);
+
+   /* read the image properties */
+   if (!xcf_load_image_props())
+      goto hard_error;
+
+   while (1)
+     {
+        /* read in the offset of the next layer */
+        image->cp += xcf_read_int32(image->fp, &offset, 1);
+
+        /* if the offset is 0 then we are at the end
+         *  of the layer list.
+         */
+        if (offset == 0)
+           break;
+
+        /* save the current position as it is where the
+         *  next layer offset is stored.
+         */
+        saved_pos = image->cp;
+
+        /* seek to the layer offset */
+        xcf_seek_pos(offset);
+
+        /* read in the layer */
+        layer = xcf_load_layer();
+        if (!layer)
+           goto error;
+
+        num_successful_elements++;
+
+        /* add the layer to the image if it's visible */
+        if (layer->visible)
+           add_layer_to_image(layer);
+        else
+           free_layer(layer);
+
+        /* restore the saved position so we'll be ready to
+         *  read the next offset.
+         */
+        xcf_seek_pos(saved_pos);
+
+     }
+
+   /* If we were a Gimp we would now load the user-defined channels here ... */
+
+   /* Flat-o-rama now :) */
+   flatten_image();
+
+   return;
+
+ error:
+   if (num_successful_elements == 0)
+      goto hard_error;
+
+   fprintf(stderr,
+           "XCF: This file is corrupt!  I have loaded as much of it as I can, but it is incomplete.\n");
+
+   return;
+
+ hard_error:
+   fprintf(stderr,
+           "XCF: This file is corrupt!  I could not even salvage any partial image data from it.\n");
+   return;
+}
+
+static int
 xcf_file_init(char *filename)
 {
    char                success = 1;
@@ -1645,7 +1572,10 @@ xcf_cleanup(void)
      }
 
    if (image->cmap)
-      FREE(image->cmap);
+     {
+        free(image->cmap);
+        image->cmap = NULL;
+     }
 }
 
 static void
