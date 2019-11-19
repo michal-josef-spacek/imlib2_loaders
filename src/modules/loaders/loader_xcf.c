@@ -1167,7 +1167,6 @@ xcf_load_level(Tile ** tiles_p, int hierarchy_width, int hierarchy_height,
         if (fail)
           {
              D("Couldn't load tiles.\n");
-             free_tiles(tiles, (*num_rows) * (*num_cols));
              return 0;
           }
 
