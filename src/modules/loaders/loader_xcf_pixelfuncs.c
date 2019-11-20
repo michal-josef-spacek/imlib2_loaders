@@ -28,8 +28,23 @@
 
 #include "common.h"
 #include "image.h"
-#include "color_values.h"
 #include "loader_xcf.h"
+
+#ifndef WORDS_BIGENDIAN
+
+#define A_VAL(p) ((DATA8 *)(p))[3]
+#define R_VAL(p) ((DATA8 *)(p))[2]
+#define G_VAL(p) ((DATA8 *)(p))[1]
+#define B_VAL(p) ((DATA8 *)(p))[0]
+
+#else
+
+#define A_VAL(p) ((DATA8 *)(p))[0]
+#define R_VAL(p) ((DATA8 *)(p))[1]
+#define G_VAL(p) ((DATA8 *)(p))[2]
+#define B_VAL(p) ((DATA8 *)(p))[3]
+
+#endif
 
 #ifdef XCF_DBG
 #define D(s) \
@@ -316,9 +331,12 @@ _clip(int *src_tl_x, int *src_tl_y,
 }
 
 void
-combine_pixels_normal(DATA8 * src, int src_w, int src_h, DATA8 * dest,
-                      int dest_w, int dest_h, int dest_x, int dest_y)
+combine_pixels_normal(const DATA32 * src_, int src_w, int src_h,
+                      DATA32 * dst_, int dest_w, int dest_h,
+                      int dest_x, int dest_y)
 {
+   const DATA8        *src = (const DATA8 *)src_;
+   DATA8              *dest = (DATA8 *) dst_;
    int                 x, y, s_idx, d_idx;
    int                 src_tl_x = 0, src_tl_y = 0;
    int                 src_br_x = src_w, src_br_y = src_h;
@@ -371,9 +389,12 @@ combine_pixels_normal(DATA8 * src, int src_w, int src_h, DATA8 * dest,
 }
 
 void
-combine_pixels_add(DATA8 * src, int src_w, int src_h, DATA8 * dest, int dest_w,
-                   int dest_h, int dest_x, int dest_y)
+combine_pixels_add(const DATA32 * src_, int src_w, int src_h,
+                   DATA32 * dst_, int dest_w, int dest_h,
+                   int dest_x, int dest_y)
 {
+   const DATA8        *src = (const DATA8 *)src_;
+   DATA8              *dest = (DATA8 *) dst_;
    int                 x, y, s_idx, d_idx;
    int                 src_tl_x = 0, src_tl_y = 0;
    int                 src_br_x = src_w, src_br_y = src_h;
@@ -403,9 +424,12 @@ combine_pixels_add(DATA8 * src, int src_w, int src_h, DATA8 * dest, int dest_w,
 }
 
 void
-combine_pixels_sub(DATA8 * src, int src_w, int src_h, DATA8 * dest, int dest_w,
-                   int dest_h, int dest_x, int dest_y)
+combine_pixels_sub(const DATA32 * src_, int src_w, int src_h,
+                   DATA32 * dst_, int dest_w, int dest_h,
+                   int dest_x, int dest_y)
 {
+   const DATA8        *src = (const DATA8 *)src_;
+   DATA8              *dest = (DATA8 *) dst_;
    int                 x, y, s_idx, d_idx;
    int                 src_tl_x = 0, src_tl_y = 0;
    int                 src_br_x = src_w, src_br_y = src_h;
@@ -435,9 +459,12 @@ combine_pixels_sub(DATA8 * src, int src_w, int src_h, DATA8 * dest, int dest_w,
 }
 
 void
-combine_pixels_diff(DATA8 * src, int src_w, int src_h, DATA8 * dest, int dest_w,
-                    int dest_h, int dest_x, int dest_y)
+combine_pixels_diff(const DATA32 * src_, int src_w, int src_h,
+                    DATA32 * dst_, int dest_w, int dest_h,
+                    int dest_x, int dest_y)
 {
+   const DATA8        *src = (const DATA8 *)src_;
+   DATA8              *dest = (DATA8 *) dst_;
    int                 x, y, s_idx, d_idx;
    int                 src_tl_x = 0, src_tl_y = 0;
    int                 src_br_x = src_w, src_br_y = src_h;
@@ -467,9 +494,12 @@ combine_pixels_diff(DATA8 * src, int src_w, int src_h, DATA8 * dest, int dest_w,
 }
 
 void
-combine_pixels_darken(DATA8 * src, int src_w, int src_h, DATA8 * dest,
-                      int dest_w, int dest_h, int dest_x, int dest_y)
+combine_pixels_darken(const DATA32 * src_, int src_w, int src_h,
+                      DATA32 * dst_, int dest_w, int dest_h,
+                      int dest_x, int dest_y)
 {
+   const DATA8        *src = (const DATA8 *)src_;
+   DATA8              *dest = (DATA8 *) dst_;
    int                 x, y, s_idx, d_idx;
    int                 src_tl_x = 0, src_tl_y = 0;
    int                 src_br_x = src_w, src_br_y = src_h;
@@ -493,9 +523,12 @@ combine_pixels_darken(DATA8 * src, int src_w, int src_h, DATA8 * dest,
 }
 
 void
-combine_pixels_lighten(DATA8 * src, int src_w, int src_h, DATA8 * dest,
-                       int dest_w, int dest_h, int dest_x, int dest_y)
+combine_pixels_lighten(const DATA32 * src_, int src_w, int src_h,
+                       DATA32 * dst_, int dest_w, int dest_h,
+                       int dest_x, int dest_y)
 {
+   const DATA8        *src = (const DATA8 *)src_;
+   DATA8              *dest = (DATA8 *) dst_;
    int                 x, y, s_idx, d_idx;
    int                 src_tl_x = 0, src_tl_y = 0;
    int                 src_br_x = src_w, src_br_y = src_h;
@@ -519,9 +552,12 @@ combine_pixels_lighten(DATA8 * src, int src_w, int src_h, DATA8 * dest,
 }
 
 void
-combine_pixels_mult(DATA8 * src, int src_w, int src_h, DATA8 * dest, int dest_w,
-                    int dest_h, int dest_x, int dest_y)
+combine_pixels_mult(const DATA32 * src_, int src_w, int src_h,
+                    DATA32 * dst_, int dest_w, int dest_h,
+                    int dest_x, int dest_y)
 {
+   const DATA8        *src = (const DATA8 *)src_;
+   DATA8              *dest = (DATA8 *) dst_;
    int                 x, y, s_idx, d_idx;
    int                 src_tl_x = 0, src_tl_y = 0;
    int                 src_br_x = src_w, src_br_y = src_h;
@@ -544,14 +580,17 @@ combine_pixels_mult(DATA8 * src, int src_w, int src_h, DATA8 * dest, int dest_w,
            AS = MIN(AS, AD);
         }
 
-   combine_pixels_normal(src, src_w, src_h, dest, dest_w, dest_h, dest_x,
-                         dest_y);
+   combine_pixels_normal(src_, src_w, src_h, dst_, dest_w, dest_h,
+                         dest_x, dest_y);
 }
 
 void
-combine_pixels_div(DATA8 * src, int src_w, int src_h, DATA8 * dest, int dest_w,
-                   int dest_h, int dest_x, int dest_y)
+combine_pixels_div(const DATA32 * src_, int src_w, int src_h,
+                   DATA32 * dst_, int dest_w, int dest_h,
+                   int dest_x, int dest_y)
 {
+   const DATA8        *src = (const DATA8 *)src_;
+   DATA8              *dest = (DATA8 *) dst_;
    int                 x, y, s_idx, d_idx;
    int                 src_tl_x = 0, src_tl_y = 0;
    int                 src_br_x = src_w, src_br_y = src_h;
@@ -573,14 +612,17 @@ combine_pixels_div(DATA8 * src, int src_w, int src_h, DATA8 * dest, int dest_w,
            AS = MIN(AD, AS);
         }
 
-   combine_pixels_normal(src, src_w, src_h, dest, dest_w, dest_h, dest_x,
-                         dest_y);
+   combine_pixels_normal(src_, src_w, src_h, dst_, dest_w, dest_h,
+                         dest_x, dest_y);
 }
 
 void
-combine_pixels_screen(DATA8 * src, int src_w, int src_h, DATA8 * dest,
-                      int dest_w, int dest_h, int dest_x, int dest_y)
+combine_pixels_screen(const DATA32 * src_, int src_w, int src_h,
+                      DATA32 * dst_, int dest_w, int dest_h,
+                      int dest_x, int dest_y)
 {
+   const DATA8        *src = (const DATA8 *)src_;
+   DATA8              *dest = (DATA8 *) dst_;
    int                 x, y, s_idx, d_idx;
    int                 src_tl_x = 0, src_tl_y = 0;
    int                 src_br_x = src_w, src_br_y = src_h;
@@ -604,9 +646,12 @@ combine_pixels_screen(DATA8 * src, int src_w, int src_h, DATA8 * dest,
 }
 
 void
-combine_pixels_overlay(DATA8 * src, int src_w, int src_h, DATA8 * dest,
-                       int dest_w, int dest_h, int dest_x, int dest_y)
+combine_pixels_overlay(const DATA32 * src_, int src_w, int src_h,
+                       DATA32 * dst_, int dest_w, int dest_h,
+                       int dest_x, int dest_y)
 {
+   const DATA8        *src = (const DATA8 *)src_;
+   DATA8              *dest = (DATA8 *) dst_;
    int                 x, y, s_idx, d_idx;
    int                 src_tl_x = 0, src_tl_y = 0;
    int                 src_br_x = src_w, src_br_y = src_h;
@@ -639,9 +684,12 @@ combine_pixels_overlay(DATA8 * src, int src_w, int src_h, DATA8 * dest,
 }
 
 static void
-combine_pixels_hsv(DATA8 * src, int src_w, int src_h, DATA8 * dest, int dest_w,
-                   int dest_h, int dest_x, int dest_y, int mode)
+combine_pixels_hsv(const DATA32 * src_, int src_w, int src_h,
+                   DATA32 * dst_, int dest_w, int dest_h,
+                   int dest_x, int dest_y, int mode)
 {
+   const DATA8        *src = (const DATA8 *)src_;
+   DATA8              *dest = (DATA8 *) dst_;
    int                 x, y, s_idx, d_idx;
    int                 src_tl_x = 0, src_tl_y = 0;
    int                 src_br_x = src_w, src_br_y = src_h;
@@ -680,33 +728,39 @@ combine_pixels_hsv(DATA8 * src, int src_w, int src_h, DATA8 * dest, int dest_w,
 }
 
 void
-combine_pixels_hue(DATA8 * src, int src_w, int src_h, DATA8 * dest, int dest_w,
-                   int dest_h, int dest_x, int dest_y)
+combine_pixels_hue(const DATA32 * src, int src_w, int src_h,
+                   DATA32 * dest, int dest_w, int dest_h,
+                   int dest_x, int dest_y)
 {
-   combine_pixels_hsv(src, src_w, src_h, dest, dest_w, dest_h, dest_x, dest_y,
-                      0);
+   combine_pixels_hsv(src, src_w, src_h, dest, dest_w, dest_h,
+                      dest_x, dest_y, 0);
 }
 
 void
-combine_pixels_sat(DATA8 * src, int src_w, int src_h, DATA8 * dest, int dest_w,
-                   int dest_h, int dest_x, int dest_y)
+combine_pixels_sat(const DATA32 * src, int src_w, int src_h,
+                   DATA32 * dest, int dest_w, int dest_h,
+                   int dest_x, int dest_y)
 {
-   combine_pixels_hsv(src, src_w, src_h, dest, dest_w, dest_h, dest_x, dest_y,
-                      1);
+   combine_pixels_hsv(src, src_w, src_h, dest, dest_w, dest_h,
+                      dest_x, dest_y, 1);
 }
 
 void
-combine_pixels_val(DATA8 * src, int src_w, int src_h, DATA8 * dest, int dest_w,
-                   int dest_h, int dest_x, int dest_y)
+combine_pixels_val(const DATA32 * src, int src_w, int src_h,
+                   DATA32 * dest, int dest_w, int dest_h,
+                   int dest_x, int dest_y)
 {
-   combine_pixels_hsv(src, src_w, src_h, dest, dest_w, dest_h, dest_x, dest_y,
-                      2);
+   combine_pixels_hsv(src, src_w, src_h, dest, dest_w, dest_h,
+                      dest_x, dest_y, 2);
 }
 
 void
-combine_pixels_col(DATA8 * src, int src_w, int src_h, DATA8 * dest, int dest_w,
-                   int dest_h, int dest_x, int dest_y)
+combine_pixels_col(const DATA32 * src_, int src_w, int src_h,
+                   DATA32 * dst_, int dest_w, int dest_h,
+                   int dest_x, int dest_y)
 {
+   const DATA8        *src = (const DATA8 *)src_;
+   DATA8              *dest = (DATA8 *) dst_;
    int                 x, y, s_idx, d_idx;
    int                 src_tl_x = 0, src_tl_y = 0;
    int                 src_br_x = src_w, src_br_y = src_h;
@@ -732,9 +786,12 @@ combine_pixels_col(DATA8 * src, int src_w, int src_h, DATA8 * dest, int dest_w,
 }
 
 void
-combine_pixels_diss(DATA8 * src, int src_w, int src_h, DATA8 * dest, int dest_w,
-                    int dest_h, int dest_x, int dest_y)
+combine_pixels_diss(const DATA32 * src_, int src_w, int src_h,
+                    DATA32 * dst_, int dest_w, int dest_h,
+                    int dest_x, int dest_y)
 {
+   const DATA8        *src = (const DATA8 *)src_;
+   DATA8              *dest = (DATA8 *) dst_;
    int                 x, y, s_idx, d_idx;
    int                 src_tl_x = 0, src_tl_y = 0;
    int                 src_br_x = src_w, src_br_y = src_h;

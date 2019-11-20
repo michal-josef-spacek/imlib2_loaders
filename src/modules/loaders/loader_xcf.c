@@ -55,7 +55,6 @@
 #include <sys/types.h>
 #include <netinet/in.h>
 
-#include "color_values.h"
 #include "loader_common.h"
 #include "loader_xcf.h"
 
@@ -194,7 +193,7 @@ struct _Layer {
     * I know, but makes life easier
     */
 
-   DATA8              *data;
+   DATA32             *data;
 
    /* Layers are stored as a linked list. */
    struct _Layer      *next;
@@ -240,7 +239,7 @@ struct _GimpImage {
    /* Tadaa -- the final image data. Layers get pasted
     * onto this one, bottom-up.
     */
-   DATA8              *data;
+   DATA32             *data;
 
    Layer              *layers;
    Layer              *last_layer;
@@ -410,8 +409,8 @@ set_layer_opacity(Layer * layer)
 
    if (layer->opacity != 255)
      {
-        for (i = 0, ptr = layer->data; i < layer->width * layer->height;
-             i++, ptr += 4)
+        for (i = 0, ptr = (DATA8 *) layer->data;
+             i < layer->width * layer->height; i++, ptr += 4)
           {
              *(ptr + 3) = (*(ptr + 3) * layer->opacity) >> 8;
           }
@@ -433,8 +432,8 @@ apply_layer_mask(Layer * layer)
    if (!layer->mask)
       return;
 
-   ptr1 = layer->data;
-   ptr2 = layer->mask->data;
+   ptr1 = (DATA8 *) layer->data;
+   ptr2 = (DATA8 *) layer->mask->data;
 
    for (i = 0; i < layer->width * layer->height; i++)
      {
@@ -850,12 +849,12 @@ xcf_load_layer_props(Layer * layer)
 
 static void
 read_tiles_into_data(Tile * tiles, int num_cols, int width,
-                     int height, int bpp, DATA8 ** data_p, int use_cmap)
+                     int height, int bpp, DATA32 ** data_p, int use_cmap)
 {
    int                 tile_x, tile_y, x, y, offset_x, offset_y;
-   DATA8              *data;
-   DATA8              *ptr;
+   DATA32             *data;
    DATA8              *ptr2;
+   unsigned char       a, r, g, b;
    Tile               *t;
    int                 warned = 0;
 
@@ -866,9 +865,10 @@ read_tiles_into_data(Tile * tiles, int num_cols, int width,
       free(*data_p);
 
    /* Always allocate the data as 4 bytes per pixel */
-   data = (*data_p) = malloc(sizeof(DATA32) * width * height);
+   data = malloc(sizeof(DATA32) * width * height);
+   *data_p = data;
 
-   ptr = data;
+   a = r = g = b = 0xff;
 
    for (y = 0; y < height; y++)
      {
@@ -888,28 +888,28 @@ read_tiles_into_data(Tile * tiles, int num_cols, int width,
                   /* use colormap if the image has one */
                   if (image->cmap && use_cmap)
                     {
-                       R_VAL(ptr) = image->cmap[*(ptr2) * 3];
-                       G_VAL(ptr) = image->cmap[*(ptr2) * 3 + 1];
-                       B_VAL(ptr) = image->cmap[*(ptr2) * 3 + 2];
-                       A_VAL(ptr) = 255;
+                       r = image->cmap[*(ptr2) * 3];
+                       g = image->cmap[*(ptr2) * 3 + 1];
+                       b = image->cmap[*(ptr2) * 3 + 2];
+                       a = 255;
                     }
                   /* else use colors themselves */
                   else
                     {
-                       R_VAL(ptr) = *(ptr2);
-                       G_VAL(ptr) = *(ptr2);
-                       B_VAL(ptr) = *(ptr2);
-                       A_VAL(ptr) = 255;
+                       r = *(ptr2);
+                       g = *(ptr2);
+                       b = *(ptr2);
+                       a = 255;
                     }
                   break;
                case 2:
                   /* use colormap if the image has one */
                   if (image->cmap && use_cmap)
                     {
-                       R_VAL(ptr) = image->cmap[*(ptr2) * 3];
-                       G_VAL(ptr) = image->cmap[*(ptr2) * 3 + 1];
-                       B_VAL(ptr) = image->cmap[*(ptr2) * 3 + 2];
-                       A_VAL(ptr) = *(ptr2 + 1);
+                       r = image->cmap[*(ptr2) * 3];
+                       g = image->cmap[*(ptr2) * 3 + 1];
+                       b = image->cmap[*(ptr2) * 3 + 2];
+                       a = *(ptr2 + 1);
                     }
                   /* else use colors themselves */
                   else if (warned == 0)
@@ -931,20 +931,21 @@ read_tiles_into_data(Tile * tiles, int num_cols, int width,
                     }
                   else
                     {
-                       R_VAL(ptr) = *(ptr2);
-                       G_VAL(ptr) = *(ptr2 + 1);
-                       B_VAL(ptr) = *(ptr2 + 2);
-                       A_VAL(ptr) = 255;
+                       r = *(ptr2);
+                       g = *(ptr2 + 1);
+                       b = *(ptr2 + 2);
+                       a = 255;
                     }
                   break;
                default:
-                  R_VAL(ptr) = *(ptr2);
-                  G_VAL(ptr) = *(ptr2 + 1);
-                  B_VAL(ptr) = *(ptr2 + 2);
-                  A_VAL(ptr) = *(ptr2 + 3);
+                  r = *(ptr2);
+                  g = *(ptr2 + 1);
+                  b = *(ptr2 + 2);
+                  a = *(ptr2 + 3);
                   break;
                }
-             ptr += 4;
+
+             *data++ = PIXEL_ARGB(a, r, g, b);
           }
      }
 }
@@ -1585,7 +1586,7 @@ xcf_to_imlib(ImlibImage * im)
    im->h = image->height;
    SET_FLAG(im->flags, F_HAS_ALPHA);
 
-   im->data = (DATA32 *) image->data;
+   im->data = image->data;
 }
 
 char
