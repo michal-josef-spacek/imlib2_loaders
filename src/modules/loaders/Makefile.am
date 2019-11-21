@@ -19,7 +19,7 @@ $(ANI_L) \
 $(EET_L) \
 $(XCF_L)
 
-EXTRA_DIST = color_values.h common.h image.h loader_common.h
+EXTRA_DIST = common.h image.h loader_common.h
 
 eet_la_SOURCES      = loader_eet.c
 eet_la_CPPFLAGS     = @EET_CFLAGS@
