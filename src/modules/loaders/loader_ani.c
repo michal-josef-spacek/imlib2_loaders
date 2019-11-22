@@ -32,16 +32,11 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 #include "loader_common.h"
 
-/* #define ANI_DBG */
-
-#ifdef ANI_DBG
-#define D(fmt, args...) \
-{ \
-  printf("Imlib2 ANI loader: "); \
-  printf(fmt, ## args); \
-}
+#define ANI_DBG 0
+#if ANI_DBG
+#define D(fmt...) printf("Imlib2 ANI loader: " fmt)
 #else
-#define D(fmt, args...)
+#define D(fmt...)
 #endif
 
 #define SWAP32(x) \
@@ -143,7 +138,7 @@ ani_cleanup(MsAni * ani)
 {
    MsChunk            *c, *c_next;
 
-   D("Failed to allocate ANI image. Cleaning up\n");
+   D("Cleaning up\n");
 
    if (!ani)
       return;
@@ -189,7 +184,7 @@ ani_load_chunk(MsAni * ani)
    chunk = calloc(1, sizeof(MsChunk *) + 2 * sizeof(DATA32) + chunk_size);
    if (!chunk)
      {
-        D("Warning, failed to allocate ANI chunk of size %d\n",
+        D("Warning, failed to allocate ANI chunk of size %ld\n",
           sizeof(MsChunk *) + 2 * sizeof(DATA32) + chunk_size);
         return NULL;
      }
