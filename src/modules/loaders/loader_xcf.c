@@ -1534,6 +1534,7 @@ xcf_file_init(char *filename)
 
    image->cp = 0;
 
+   memset(id, 0, sizeof(id));
    image->cp += xcf_read_int8(image->fp, (DATA8 *) id, 14);
    if (strncmp(id, "gimp xcf ", 9) != 0)
      {
