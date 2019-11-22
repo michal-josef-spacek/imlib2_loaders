@@ -244,6 +244,7 @@ char
 load(ImlibImage * im, ImlibProgressFunction progress, char progress_granularity,
      char immediate_load)
 {
+   int                 rc;
    ImlibLoader        *loader;
    MsAni              *ani = NULL;
    MsChunk            *chunk;
@@ -252,46 +253,43 @@ load(ImlibImage * im, ImlibProgressFunction progress, char progress_granularity,
    if (!loader)
       return 0;
 
-   if (im->loader || immediate_load || progress)
+   if (!(ani = ani_init((im->real_file))))
+      return 0;
+
+   ani_load(ani);
+
+   rc = 0;
+
+   for (chunk = ani->chunks; chunk; chunk = chunk->next)
      {
-        if (!(ani = ani_init((im->real_file))))
-           return 0;
-
-        ani_load(ani);
-
-        for (chunk = ani->chunks; chunk; chunk = chunk->next)
+        if (chunk->chunk_id == 0x6E6F6369)
           {
-             if (chunk->chunk_id == 0x6E6F6369)
-               {
-                  char               *file;
-                  char               *tmpfile;
+             char               *file;
+             char               *tmpfile;
 
-                  if (!(tmpfile = ani_save_ico(chunk)))
-                     return 0;
+             if (!(tmpfile = ani_save_ico(chunk)))
+                break;
 
-                  file = im->real_file;
-                  im->real_file = tmpfile;
-                  loader->load(im, progress, progress_granularity,
+             file = im->real_file;
+             im->real_file = tmpfile;
+             rc = loader->load(im, progress, progress_granularity,
                                immediate_load);
-                  im->real_file = file;
+             im->real_file = file;
 
-                  unlink(tmpfile);
-                  free(tmpfile);
-                  break;
-               }
+             unlink(tmpfile);
+             free(tmpfile);
+             break;
           }
-
-        ani_cleanup(ani);
      }
 
-   if (progress)
+   ani_cleanup(ani);
+
+   if (rc == 1 && progress)
      {
         progress(im, 100, 0, 0, im->w, im->h);
      }
 
-   return 1;
-
-   progress_granularity = 0;
+   return rc;
 }
 
 void
