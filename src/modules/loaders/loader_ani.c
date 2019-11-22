@@ -227,7 +227,7 @@ ani_load(MsAni * ani)
 static char        *
 ani_save_ico(MsChunk * chunk)
 {
-   static char         tmp[] = "/tmp/imlib2_loader_ani-XXXXXX";
+   char                tmp[] = "/tmp/imlib2_loader_ani-XXXXXX";
    int                 fd;
 
    fd = mkstemp(tmp);
@@ -237,7 +237,7 @@ ani_save_ico(MsChunk * chunk)
    write(fd, &chunk->data, chunk->chunk_size);
    close(fd);
 
-   return tmp;
+   return strdup(tmp);
 }
 
 char
@@ -276,6 +276,7 @@ load(ImlibImage * im, ImlibProgressFunction progress, char progress_granularity,
                   im->real_file = file;
 
                   unlink(tmpfile);
+                  free(tmpfile);
                   break;
                }
           }
