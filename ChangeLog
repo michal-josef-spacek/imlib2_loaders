@@ -1,5 +1,35 @@
 
 ***
+*** Version 1.6.0 ***
+***
+
+Kim Woelders (23):
+      Autofoo cleanup
+      Set warning options when using gcc.
+      Use headers for funcion prototypes
+      Enable visibility hiding
+      Drop ICO loader
+      Remove unused X11 headers
+      Spec file cleanups
+      Simplify autogen.sh
+      Indent
+      Copy updated headers from imlib2
+      Match various changes done in imlib2 loaders
+      ANI loader: Fix - Don't use __imlib_LoadImage() or tempnam()
+      ANI loader: Fix memory leak in error path
+      ANI loader: Cosmetics
+      XCF loader: Cosmetic rearrangements
+      XCF loader: Prefer DATA32 when accessing imlib2 image data
+      XCF loader: Stop on errors and propagate error status up to load()
+      XCF loader: Fix double free.
+      Fix make dist
+      ANI loader: Make debug stuff similar to elsewhere around here
+      ANI loader: Don't use static buffer for mkstemp() template
+      ANI loader: If .ani looks good we must try .ico loading chunks
+      XCF loader: Avoid accessing unset data in signature check
+
+
+***
 *** Version 1.5.1 ***
 ***
 
