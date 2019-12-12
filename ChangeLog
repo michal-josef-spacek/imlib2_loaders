@@ -1,9 +1,17 @@
 
 ***
+*** Version 1.6.1 ***
+***
+
+Kim Woelders (1):
+      1.6.1 (no changes since 1.6.0)
+
+
+***
 *** Version 1.6.0 ***
 ***
 
-Kim Woelders (23):
+Kim Woelders (24):
       Autofoo cleanup
       Set warning options when using gcc.
       Use headers for funcion prototypes
@@ -27,6 +35,7 @@ Kim Woelders (23):
       ANI loader: Don't use static buffer for mkstemp() template
       ANI loader: If .ani looks good we must try .ico loading chunks
       XCF loader: Avoid accessing unset data in signature check
+      1.6.0.
 
 
 ***
