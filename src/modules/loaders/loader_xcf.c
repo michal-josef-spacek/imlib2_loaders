@@ -1593,13 +1593,13 @@ xcf_to_imlib(ImlibImage * im)
 
 char
 load(ImlibImage * im, ImlibProgressFunction progress, char progress_granularity,
-     char immediate_load)
+     char load_data)
 {
-   int                 rc = 0;
+   int                 rc = LOAD_FAIL;
 
    /* initialize */
    if (!xcf_file_init(im->real_file))
-      return 0;
+      return LOAD_FAIL;
 
    /* do it! */
    if (!xcf_load_image())
@@ -1609,12 +1609,10 @@ load(ImlibImage * im, ImlibProgressFunction progress, char progress_granularity,
    xcf_to_imlib(im);
 
    /* I want to ignore this for now, am I doing this right? --cK */
-   if (progress)
-     {
-        progress(im, 100, 0, 0, im->w, im->h);
-     }
+   if (im->lc)
+      __imlib_LoadProgressRows(im, 0, im->h);
 
-   rc = 1;                      /* Success */
+   rc = LOAD_SUCCESS;
 
  quit:
    /* cleanup */
@@ -1627,11 +1625,6 @@ void
 formats(ImlibLoader * l)
 {
    static const char  *const list_formats[] = { "xcf" };
-   int                 i;
-
-   l->num_formats = sizeof(list_formats) / sizeof(char *);
-   l->formats = malloc(sizeof(char *) * l->num_formats);
-
-   for (i = 0; i < l->num_formats; i++)
-      l->formats[i] = strdup(list_formats[i]);
+   __imlib_LoaderSetFormats(l, list_formats,
+                            sizeof(list_formats) / sizeof(char *));
 }

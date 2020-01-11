@@ -242,7 +242,7 @@ ani_save_ico(MsChunk * chunk)
 
 char
 load(ImlibImage * im, ImlibProgressFunction progress, char progress_granularity,
-     char immediate_load)
+     char load_data)
 {
    int                 rc;
    ImlibLoader        *loader;
@@ -251,30 +251,25 @@ load(ImlibImage * im, ImlibProgressFunction progress, char progress_granularity,
 
    loader = __imlib_FindBestLoaderForFormat("ico", 0);
    if (!loader)
-      return 0;
+      return LOAD_FAIL;
 
    if (!(ani = ani_init((im->real_file))))
-      return 0;
+      return LOAD_FAIL;
 
    ani_load(ani);
 
-   rc = 0;
+   rc = LOAD_FAIL;
 
    for (chunk = ani->chunks; chunk; chunk = chunk->next)
      {
         if (chunk->chunk_id == 0x6E6F6369)
           {
-             char               *file;
              char               *tmpfile;
 
              if (!(tmpfile = ani_save_ico(chunk)))
                 break;
 
-             file = im->real_file;
-             im->real_file = tmpfile;
-             rc = loader->load(im, progress, progress_granularity,
-                               immediate_load);
-             im->real_file = file;
+             rc = __imlib_LoadEmbedded(loader, im, tmpfile, load_data);
 
              unlink(tmpfile);
              free(tmpfile);
@@ -284,11 +279,6 @@ load(ImlibImage * im, ImlibProgressFunction progress, char progress_granularity,
 
    ani_cleanup(ani);
 
-   if (rc == 1 && progress)
-     {
-        progress(im, 100, 0, 0, im->w, im->h);
-     }
-
    return rc;
 }
 
@@ -296,11 +286,6 @@ void
 formats(ImlibLoader * l)
 {
    static const char  *const list_formats[] = { "ani" };
-   int                 i;
-
-   l->num_formats = sizeof(list_formats) / sizeof(char *);
-   l->formats = malloc(sizeof(char *) * l->num_formats);
-
-   for (i = 0; i < l->num_formats; i++)
-      l->formats[i] = strdup(list_formats[i]);
+   __imlib_LoaderSetFormats(l, list_formats,
+                            sizeof(list_formats) / sizeof(char *));
 }
