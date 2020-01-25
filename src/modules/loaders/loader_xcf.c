@@ -1306,7 +1306,7 @@ xcf_load_channel(void)
    free(name);
 
    /* create a new channel */
-   layer = new_layer(width, height, GRAY, 255, NORMAL_MODE);
+   layer = new_layer(width, height, RGBA_GIMAGE, 255, NORMAL_MODE);
    if (!layer)
       return NULL;
 
