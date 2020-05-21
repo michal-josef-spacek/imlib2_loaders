@@ -220,7 +220,6 @@ struct _Tile {
 */
 struct _GimpImage {
    FILE               *fp;
-   char               *filename;
    int                 cp;      /*  file stream pointer          */
    int                 compression;     /*  file compression mode        */
    int                 file_version;
@@ -1507,7 +1506,7 @@ xcf_load_image(void)
 }
 
 static int
-xcf_file_init(char *filename)
+xcf_file_init(FILE * fp)
 {
    char                success = 1;
    char                id[14];
@@ -1521,11 +1520,8 @@ xcf_file_init(char *filename)
         D("Loading only XCF layer %i.\n", image->single_layer_index);
      }
 #endif
-   image->fp = fopen(filename, "r");
-   if (!image->fp)
-      return 0;
+   image->fp = fp;
 
-   image->filename = filename;
    image->layers = NULL;
    image->last_layer = NULL;
    image->cmap = NULL;
@@ -1539,7 +1535,6 @@ xcf_file_init(char *filename)
    if (strncmp(id, "gimp xcf ", 9) != 0)
      {
         success = 0;
-        fclose(image->fp);
      }
    else if (strcmp(id + 9, "file") == 0)
      {
@@ -1552,7 +1547,6 @@ xcf_file_init(char *filename)
    else
      {
         success = 0;
-        fclose(image->fp);
      }
 
    return success;
@@ -1563,8 +1557,6 @@ xcf_cleanup(void)
 {
    Layer              *l;
    Layer              *lp;
-
-   fclose(image->fp);
 
    l = image->last_layer;
    while (l)
@@ -1591,14 +1583,13 @@ xcf_to_imlib(ImlibImage * im)
    im->data = image->data;
 }
 
-char
-load(ImlibImage * im, ImlibProgressFunction progress, char progress_granularity,
-     char load_data)
+int
+load2(ImlibImage * im, int load_data)
 {
    int                 rc = LOAD_FAIL;
 
    /* initialize */
-   if (!xcf_file_init(im->real_file))
+   if (!xcf_file_init(im->fp))
       return LOAD_FAIL;
 
    /* do it! */

@@ -47,7 +47,6 @@ typedef struct _MsChunk {
 } MsChunk;
 
 typedef struct _MsAni {
-   char               *filename;
    FILE               *fp;
    DATA32              cp;
 
@@ -96,17 +95,15 @@ ani_read_int32(FILE * fp, DATA32 * data, int count)
 }
 
 static MsAni       *
-ani_init(char *filename)
+ani_init(FILE * fp)
 {
    MsAni              *ani;
 
    if (!(ani = calloc(1, sizeof(MsAni))))
       return NULL;
 
-   if (!(ani->fp = fopen(filename, "r")))
-      goto bail;
+   ani->fp = fp;
 
-   ani->filename = filename;
    ani->cp += ani_read_int32(ani->fp, &ani->riff_id, 1);
    ani->cp += ani_read_int32(ani->fp, &ani->data_size, 1);
    ani->cp += ani_read_int32(ani->fp, &ani->chunk_id, 1);
@@ -130,9 +127,6 @@ ani_cleanup(MsAni * ani)
 
    if (!ani)
       return;
-
-   if (ani->fp)
-      fclose(ani->fp);
 
    for (c = ani->chunks; c;)
      {
@@ -228,9 +222,8 @@ ani_save_ico(MsChunk * chunk)
    return strdup(tmp);
 }
 
-char
-load(ImlibImage * im, ImlibProgressFunction progress, char progress_granularity,
-     char load_data)
+int
+load2(ImlibImage * im, int load_data)
 {
    int                 rc;
    ImlibLoader        *loader;
@@ -241,7 +234,8 @@ load(ImlibImage * im, ImlibProgressFunction progress, char progress_granularity,
    if (!loader)
       return LOAD_FAIL;
 
-   if (!(ani = ani_init((im->real_file))))
+   ani = ani_init(im->fp);
+   if (!ani)
       return LOAD_FAIL;
 
    ani_load(ani);
