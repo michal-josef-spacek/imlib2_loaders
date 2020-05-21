@@ -70,6 +70,7 @@ struct _imlibimage {
    char               *key;
    ImlibImageDataMemoryFunction data_memory_func;
    ImlibLdCtx         *lc;
+   FILE               *fp;
 };
 
 #ifdef BUILD_X11
@@ -92,7 +93,7 @@ struct _imlibimagepixmap {
 };
 #endif
 
-void                __imlib_RescanLoaders(void);
+void                __imlib_LoadAllLoaders(void);
 void                __imlib_RemoveAllLoaders(void);
 ImlibLoader       **__imlib_GetLoaderList(void);
 ImlibLoader        *__imlib_FindBestLoaderForFile(const char *file,
@@ -100,14 +101,14 @@ ImlibLoader        *__imlib_FindBestLoaderForFile(const char *file,
 ImlibLoader        *__imlib_FindBestLoaderForFormat(const char *format,
                                                     int for_save);
 ImlibLoader        *__imlib_FindBestLoaderForFileFormat(const char *file,
-                                                        char *format,
+                                                        const char *format,
                                                         int for_save);
 void                __imlib_LoaderSetFormats(ImlibLoader * l,
                                              const char *const *fmt,
                                              unsigned int num);
 
 ImlibImage         *__imlib_CreateImage(int w, int h, DATA32 * data);
-ImlibImage         *__imlib_LoadImage(const char *file,
+ImlibImage         *__imlib_LoadImage(const char *file, FILE * fp,
                                       ImlibProgressFunction progress,
                                       char progress_granularity,
                                       char immediate_load, char dont_cache,
@@ -155,7 +156,7 @@ void                __imlib_DirtyPixmapsForImage(ImlibImage * im);
 void                __imlib_AttachTag(ImlibImage * im, const char *key,
                                       int val, void *data,
                                       ImlibDataDestructorFunction destructor);
-ImlibImageTag      *__imlib_GetTag(ImlibImage * im, const char *key);
+ImlibImageTag      *__imlib_GetTag(const ImlibImage * im, const char *key);
 ImlibImageTag      *__imlib_RemoveTag(ImlibImage * im, const char *key);
 void                __imlib_FreeTag(ImlibImage * im, ImlibImageTag * t);
 void                __imlib_FreeAllTags(ImlibImage * im);
