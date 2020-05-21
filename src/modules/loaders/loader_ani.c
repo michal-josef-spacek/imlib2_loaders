@@ -39,18 +39,6 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #define D(fmt...)
 #endif
 
-#define SWAP32(x) \
-((((x) & 0x000000ff ) << 24) |\
- (((x) & 0x0000ff00 ) << 8) |\
- (((x) & 0x00ff0000 ) >> 8) |\
- (((x) & 0xff000000 ) >> 24))
-
-#ifdef WORDS_BIGENDIAN
-#define ENDIAN_SWAP(x) (SWAP32(x))
-#else
-#define ENDIAN_SWAP(x) (x)
-#endif
-
 typedef struct _MsChunk {
    struct _MsChunk    *next;
    DATA32              chunk_id;
@@ -101,7 +89,7 @@ ani_read_int32(FILE * fp, DATA32 * data, int count)
      {
         ani_read_int8(fp, (DATA8 *) data, count * 4);
         for (i = 0; i < count; i++)
-           data[i] = ENDIAN_SWAP(data[i]);
+           data[i] = SWAP_LE_32(data[i]);
      }
 
    return total * 4;
@@ -192,7 +180,7 @@ ani_load_chunk(MsAni * ani)
    chunk->chunk_id = chunk_id;
    chunk->chunk_size = chunk_size;
 
-   chunk_id = ENDIAN_SWAP(chunk_id);
+   chunk_id = SWAP_LE_32(chunk_id);
 
    D("Loaded chunk with ID '%c%c%c%c' and length %i\n",
      ((char *)&chunk_id)[0], ((char *)&chunk_id)[1],
