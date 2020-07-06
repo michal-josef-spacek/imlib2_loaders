@@ -7,6 +7,9 @@ pkgdir               = $(libdir)/imlib2/loaders
 if BUILD_ANI_LOADER
 ANI_L                = ani.la
 endif
+if BUILD_DWG_LOADER
+DWG_L                = dwg.la
+endif
 if BUILD_EET_LOADER
 EET_L                = eet.la
 endif
@@ -16,6 +19,7 @@ endif
 
 pkg_LTLIBRARIES      = \
 $(ANI_L) \
+$(DWG_L) \
 $(EET_L) \
 $(XCF_L)
 
@@ -36,3 +40,9 @@ ani_la_SOURCES      = loader_ani.c
 ani_la_LDFLAGS      = -module -avoid-version
 ani_la_LIBADD       =
 ani_la_LIBTOOLFLAGS = --tag=disable-static
+
+dwg_la_SOURCES      = loader_dwg.c
+dwg_la_CPPFLAGS     = @DWG_CFLAGS@
+dwg_la_LDFLAGS      = -module -avoid-version
+dwg_la_LIBADD       = @DWG_LIBS@
+dwg_la_LIBTOOLFLAGS = --tag=disable-static

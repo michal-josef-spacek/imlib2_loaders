@@ -22,6 +22,17 @@ PKG_PROG_PKG_CONFIG
 
 ani=yes
 
+dwg=auto
+AC_ARG_ENABLE(dwg,
+[  --disable-dwg           disable building the dwg loader],
+[
+ if test x$enableval = xno; then
+   dwg=no
+ else
+   dwg=yes
+ fi
+])
+
 eet=auto
 AC_ARG_ENABLE(eet,
 [  --disable-eet           disable building the eet loader],
@@ -57,7 +68,18 @@ elif test "x$found_eet" = "xno" ; then
 	eet=no
 fi
 
+found_dwg=no
+if test "x$dwg" != "xno" ; then
+        PKG_CHECK_MODULES(DWG, libredwg, found_dwg=yes, found_dwg=no)
+fi
+if test "x$dwg$found_dwg" = "xyesno" ; then
+	AC_MSG_ERROR(Dwg support was requested but not found)
+elif test "x$found_dwg" = "xno" ; then
+	dwg=no
+fi
+
 AM_CONDITIONAL(BUILD_ANI_LOADER, test x$ani != xno)
+AM_CONDITIONAL(BUILD_DWG_LOADER, test x$dwg != xno)
 AM_CONDITIONAL(BUILD_EET_LOADER, test x$eet != xno)
 AM_CONDITIONAL(BUILD_XCF_LOADER, test x$xcf != xno)
 
@@ -89,6 +111,7 @@ echo "Configuration Options Summary:"
 echo
 echo "Image loaders:"
 echo "  ANI.....................: $ani"
+echo "  DWG.....................: $dwg"
 echo "  EET.....................: $eet"
 echo "  XCF.....................: $xcf"
 echo
