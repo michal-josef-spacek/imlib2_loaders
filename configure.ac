@@ -1,4 +1,4 @@
-AC_INIT([imlib2_loaders],[1.6.1],[enlightenment-devel@lists.sourceforge.net])
+AC_INIT([imlib2_loaders],[1.7.0],[enlightenment-devel@lists.sourceforge.net])
 AC_CONFIG_SRCDIR(configure.ac)
 AC_CONFIG_MACRO_DIR([m4])
 AC_CANONICAL_BUILD

@@ -1,5 +1,21 @@
 
 ***
+*** Version 1.7.0 ***
+***
+
+Kim Woelders (9):
+      Update headers
+      Update loaders (follow changes in imlib2)
+      autogen.sh: Add -n as alternative to NOCONFIGURE
+      XCF loader: Use correct enum (gcc10)
+      configure.ac: Drop initial config.cache removal
+      Update headers
+      Use SWAP.. macros from common.h
+      Move loaders to load2()
+      1.7.0
+
+
+***
 *** Version 1.6.1 ***
 ***
 
